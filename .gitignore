@@ -1,0 +1,12 @@
+node_modules/
+.nuxt/
+.output/
+dist/
+.data/
+.env
+.env.*
+!.env.example
+.pnpmrc
+older/*
+!older/.gitkeep
+dist/
