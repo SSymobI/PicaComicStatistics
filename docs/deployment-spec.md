@@ -20,6 +20,8 @@
 | Cloudflare Pages | `nuxi build --preset=cloudflare-pages` | `dist/`（含 `_worker.js` Functions 入口与静态资源） | 产物存在 `dist/_worker.js/index.js`、`dist/_nuxt/` 与 `_routes.json` |
 | Docker 镜像 | 上述 Node 产物 + 多阶段 Dockerfile | 本地镜像 | `docker build` 成功 |
 
+Docker 构建上下文由 `.dockerignore` 排除宿主机的 `node_modules`、Nuxt 构建产物和本地环境文件。依赖只在 Docker 的 `deps` 阶段通过 frozen lockfile 安装，避免宿主平台依赖覆盖容器内依赖并触发无 TTY 的 pnpm 模块清理。
+
 Windows 下设置环境变量的写法与类 Unix 不同, 需在 `package.json` 脚本中通过 `cross-env` 或 Nuxt 的 `--preset` 参数表达, 避免依赖 shell 语法差异:
 
 ``` json
