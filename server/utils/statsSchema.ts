@@ -1,5 +1,5 @@
-import type { StatsFieldSchema as Schema } from '../../types/ai-schema';
-import type { StatsResult } from '../../types/stats';
+import type { StatsFieldSchema as Schema } from '~/types/ai-schema';
+import type { StatsResult } from '~/types/stats';
 
 const stringArray: Schema = { array: 'string' };
 const thumb: Schema = { nullable: { fields: { originalName: 'string', path: 'string', fileServer: 'string', fileUrl: 'string' }, optional: ['originalName', 'path', 'fileServer', 'fileUrl'] } };

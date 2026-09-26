@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { EmptyStateProps } from '../../../types/ui';
+import type { EmptyStateProps } from '@types-project/ui';
 
 withDefaults(defineProps<EmptyStateProps>(), { title: '暂无数据', description: '' });
 </script>

@@ -1,10 +1,11 @@
-import type { PicaComicDetail } from '../../../types/domain';
-import type { PicaComicData } from '../../../types/pica-api';
+import type { PicaComicDetail } from '~/types/domain';
+import type { PicaComicData } from '~/types/pica-api';
 import { createError, defineEventHandler, getQuery } from 'h3';
-import { BatchErrorCode, FetchPacing } from '../../constants/pica';
-import { requireAuthorization, toApiError } from '../../utils/apiHelpers';
-import { picaComicDetail, PicaUpstreamError, unwrapPicaData } from '../../utils/picComicAPI';
-import { getRuntimePacing } from '../../utils/runtimeCapabilities';
+import { ApiErrorCode, ApiErrorMessages, HttpStatus } from '~/server/constants/errors';
+import { BatchErrorCode, FetchPacing } from '~/server/constants/pica';
+import { requireAuthorization, toApiError } from '~/server/utils/apiHelpers';
+import { picaComicDetail, PicaUpstreamError, unwrapPicaData } from '~/server/utils/picComicAPI';
+import { getRuntimePacing } from '~/server/utils/runtimeCapabilities';
 
 interface ComicBatchResult {
   comics: PicaComicDetail[];
@@ -27,12 +28,12 @@ export default defineEventHandler(async (event): Promise<ComicBatchResult> => {
   try {
     const bookIds = parseBookIds(getQuery(event).bookId);
     if (bookIds.length === 0) {
-      throw createError({ statusCode: 400, statusMessage: 'bookId is required', data: { code: 'INVALID_REQUEST' } });
+      throw createError({ statusCode: HttpStatus.BAD_REQUEST, statusMessage: ApiErrorMessages.BOOK_ID_REQUIRED, data: { code: ApiErrorCode.INVALID_REQUEST } });
     }
     if (bookIds.length > FetchPacing.DETAIL_BATCH_SIZE) {
       throw createError({
-        statusCode: 502,
-        statusMessage: 'Detail batch size exceeded',
+        statusCode: HttpStatus.BAD_GATEWAY,
+        statusMessage: ApiErrorMessages.DETAIL_BATCH_SIZE_EXCEEDED,
         data: { code: BatchErrorCode.BATCH_LIMIT_EXCEEDED, max: FetchPacing.DETAIL_BATCH_SIZE },
       });
     }
@@ -55,7 +56,7 @@ export default defineEventHandler(async (event): Promise<ComicBatchResult> => {
         }
         catch (error) {
           // Token 失效必须让前端进入 expired 状态，不能被降级成单本失败。
-          if (error instanceof PicaUpstreamError && error.statusCode === 401)
+          if (error instanceof PicaUpstreamError && error.statusCode === HttpStatus.UNAUTHORIZED)
             throw error;
           if (attempt >= FetchPacing.MAX_RETRY_PER_ITEM)
             break;

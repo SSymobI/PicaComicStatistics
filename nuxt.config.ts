@@ -1,14 +1,33 @@
+import { resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-15',
-  devtools: { enabled: false },
+  app: {
+    head: {
+      title: '哔咔收藏统计',
+      meta: [
+        {
+          name: 'description',
+          content: '哔咔漫画PicaComic个人收藏数据统计分析，助你了解自己的XP',
+        },
+      ],
+      link: [
+        {
+          rel: 'icon',
+          type: 'image/x-icon',
+          href: '/logo.ico',
+        },
+      ],
+    },
+  },
+  devtools: { enabled: true },
   ssr: false,
   modules: ['@pinia/nuxt'],
   vite: {
     plugins: [tailwindcss()],
   },
-  css: ['~/assets/css/tailwind.css', '~/assets/css/main.css'],
+  css: ['@/assets/css/tailwind.css', '@/assets/css/main.css'],
   typescript: {
     strict: true,
     typeCheck: false,
@@ -31,8 +50,11 @@ export default defineNuxtConfig({
     preset: process.env.NITRO_PRESET || undefined,
   },
   alias: {
-    '@types-project': './types',
-    '@types-project/auth': './types/auth.ts',
-    '@types-project/ui': './types/ui.ts',
+    '@': resolve('app'),
+    '~': resolve('.'),
+    '@types-project': resolve('types'),
+    '@types-project/*': `${resolve('types')}/*`,
+    '@types-project/auth': resolve('types/auth.ts'),
+    '@types-project/ui': resolve('types/ui.ts'),
   },
 });

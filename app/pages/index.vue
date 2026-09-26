@@ -1,10 +1,23 @@
 <script setup lang="ts">
-import { AppRoutes } from '~/constants/routes';
-import splash from '../../assets/image/pica_splash.png';
+import { AppRoutes } from '@/constants/routes';
+import placeholder from '~/assets/image/pica_placeholder.jpg';
+import splash from '~/assets/image/pica_splash.png';
 
 const auth = useAuthStore();
 const ctaRoute = computed(() => auth.isAuthenticated ? AppRoutes.SUMMARY : AppRoutes.LOGIN);
 const ctaLabel = computed(() => auth.isAuthenticated ? '进入我的统计' : '开始登录并统计');
+
+useHead({
+  title: '哔咔收藏统计 | 首页',
+});
+
+function handleImageError(event: Event): void {
+  const target = event.target;
+  if (target instanceof HTMLImageElement && target.dataset.fallback !== 'true') {
+    target.dataset.fallback = 'true';
+    target.src = placeholder;
+  }
+}
 </script>
 
 <template>
@@ -23,7 +36,7 @@ const ctaLabel = computed(() => auth.isAuthenticated ? '进入我的统计' : '�
         </div>
       </div>
       <div class="hero-art" aria-hidden="true">
-        <img :src="splash" alt="">
+        <img :src="splash" alt="" @error="handleImageError">
       </div>
     </div>
   </div>

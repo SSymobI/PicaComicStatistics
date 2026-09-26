@@ -59,6 +59,8 @@ Windows 下设置环境变量的写法与类 Unix 不同, 需在 `package.json` 
 - 允许启用依赖缓存与 pnpm store 缓存, 但需注意 GitHub 公开仓库的 Actions 配额限制, 缓存以不超配额为前提。
 - 同一分支产生新提交时, 允许取消上一次仍在运行的流程, 以节省配额。
 
+pnpm 11.5 的非交互环境会默认阻止依赖安装脚本。工作区根目录 `pnpm-workspace.yaml` 的 `allowBuilds` 明确允许 `esbuild`、`unrs-resolver` 和 `vue-demi` 构建；Docker 依赖层必须复制该文件，确保本地、GitHub Actions 与 Docker 的 frozen install 行为一致。不得在 CI 中调用交互式 `pnpm approve-builds`。
+
 ### 3.2 master 发布
 
 触发条件: PR 合并进入 `master`。

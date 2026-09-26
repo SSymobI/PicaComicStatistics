@@ -7,16 +7,17 @@ import type {
   PicaLeaderboardData,
   PicaLoginResponse,
   PicaProfileData,
-} from '../../types/pica-api';
+} from '~/types/pica-api';
 import { useRuntimeConfig } from '#imports';
 import { $fetch } from 'ofetch';
+import { ApiErrorMessages, HttpStatus } from '~/server/constants/errors';
 import {
   FavouriteSort,
   LeaderboardParam,
   PicaComicAPIConfig,
   PicaComicAPIEndpoint,
-} from '../constants/pica';
-import { createPicaComicHeaders } from './picaComicHeaderHandler';
+} from '~/server/constants/pica';
+import { createPicaComicHeaders } from '~/server/utils/picaComicHeaderHandler';
 
 export type PicaHttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
 
@@ -24,7 +25,7 @@ export class PicaUpstreamError extends Error {
   readonly statusCode: number;
   readonly payload: unknown;
 
-  constructor(message: string, statusCode = 502, payload?: unknown) {
+  constructor(message: string, statusCode: number = HttpStatus.BAD_GATEWAY, payload?: unknown) {
     super(message);
     this.name = 'PicaUpstreamError';
     this.statusCode = statusCode;
@@ -40,7 +41,7 @@ function upstreamStatus(error: unknown): number {
   const record = asRecord(error);
   const response = asRecord(record?.response);
   const status = response?.status ?? record?.statusCode ?? record?.status;
-  return typeof status === 'number' && Number.isFinite(status) ? status : 502;
+  return typeof status === 'number' && Number.isFinite(status) ? status : HttpStatus.BAD_GATEWAY;
 }
 
 function upstreamPayload(error: unknown): unknown {
@@ -77,8 +78,8 @@ async function requestPica<T>(
       body,
       timeout: timeoutMs(event),
     });
-    if (typeof result?.code === 'number' && result.code >= 400) {
-      throw new PicaUpstreamError(result.message || 'Pica upstream rejected request', result.code, result);
+    if (typeof result?.code === 'number' && result.code >= HttpStatus.BAD_REQUEST) {
+      throw new PicaUpstreamError(result.message || ApiErrorMessages.PICA_UPSTREAM_REQUEST_FAILED, Number(result.code), result);
     }
     return result;
   }
@@ -86,7 +87,7 @@ async function requestPica<T>(
     if (error instanceof PicaUpstreamError)
       throw error;
     const statusCode = upstreamStatus(error);
-    throw new PicaUpstreamError('Pica upstream request failed', statusCode, upstreamPayload(error));
+    throw new PicaUpstreamError(ApiErrorMessages.PICA_UPSTREAM_REQUEST_FAILED, statusCode, upstreamPayload(error));
   }
 }
 
@@ -131,7 +132,7 @@ export async function picaComicDetail(
   bookId: string,
 ): Promise<PicaApiEnvelope<PicaComicData>> {
   if (!bookId)
-    throw new PicaUpstreamError('bookId is required', 400);
+    throw new PicaUpstreamError(ApiErrorMessages.BOOK_ID_REQUIRED, Number(HttpStatus.BAD_REQUEST));
   const path = `${PicaComicAPIEndpoint.COMIC_DETAIL}/${encodeURIComponent(bookId)}`;
   return requestPica<PicaComicData>(event, path, 'GET', token);
 }

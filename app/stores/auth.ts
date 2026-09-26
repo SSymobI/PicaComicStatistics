@@ -1,7 +1,7 @@
-import type { AuthStatus, AuthUser, LoginResponse, ProfileResponse } from '../../types/auth';
+import type { AuthStatus, AuthUser, LoginResponse, ProfileResponse } from '@types-project/auth';
+import { AuthStatuses } from '@types-project/auth';
 import { defineStore } from 'pinia';
-import { AppRoutes, StorageKeys } from '~/constants/routes';
-import { AuthStatuses } from '../../types/auth';
+import { AppRoutes, StorageKeys } from '@/constants/routes';
 
 function extractToken(payload: LoginResponse): string | undefined {
   return payload.token ?? payload.data?.token;

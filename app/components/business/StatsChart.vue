@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import type { UpdateBucket, WordStatItem, YearBucket } from '@types-project/stats';
+import type { StatsChartProps } from '@types-project/ui';
 import type { ECharts, EChartsOption } from 'echarts';
-import type { UpdateBucket, WordStatItem, YearBucket } from '../../../types/stats';
-import type { StatsChartProps } from '../../../types/ui';
 
 const props = withDefaults(defineProps<StatsChartProps>(), { height: '20rem' });
 const chartRoot = ref<HTMLElement>();

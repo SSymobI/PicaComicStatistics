@@ -1,4 +1,4 @@
-import { PacingProfiles, RuntimeCapabilities } from '../constants/pica';
+import { PacingProfiles, RuntimeCapabilities } from '~/server/constants/pica';
 
 export function isCloudflareBuild(presetOverride?: string): boolean {
   if (typeof process === 'undefined')

@@ -1,16 +1,17 @@
-import type { PicaFavouriteData } from '../../../types/pica-api';
-import type { FavouriteSortValue } from '../../constants/pica';
+import type { FavouriteSortValue } from '~/server/constants/pica';
+import type { PicaFavouriteData } from '~/types/pica-api';
 import { createError, defineEventHandler, getQuery } from 'h3';
-import { FavouriteSort } from '../../constants/pica';
-import { requireAuthorization, toApiError } from '../../utils/apiHelpers';
-import { picaFavourite, unwrapPicaData } from '../../utils/picComicAPI';
+import { ApiErrorCode, ApiErrorMessages, HttpStatus } from '~/server/constants/errors';
+import { FavouriteSort } from '~/server/constants/pica';
+import { requireAuthorization, toApiError } from '~/server/utils/apiHelpers';
+import { picaFavourite, unwrapPicaData } from '~/server/utils/picComicAPI';
 
 const validSorts = new Set<string>(Object.values(FavouriteSort));
 
 function parsePage(value: unknown): number {
   const page = Number(value ?? 1);
   if (!Number.isInteger(page) || page < 1) {
-    throw createError({ statusCode: 400, statusMessage: 'page must be a positive integer', data: { code: 'INVALID_REQUEST' } });
+    throw createError({ statusCode: HttpStatus.BAD_REQUEST, statusMessage: ApiErrorMessages.PAGE_POSITIVE_INTEGER, data: { code: ApiErrorCode.INVALID_REQUEST } });
   }
   return page;
 }

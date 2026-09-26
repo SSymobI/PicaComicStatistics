@@ -1,2 +1,7 @@
 @import 'tailwindcss';
-@config '../../../tailwind.config.ts';
+
+@theme {
+  --font-sans: 'Noto Sans SC', 'PingFang SC', system-ui, sans-serif;
+  --font-display: 'Archivo Black', 'Noto Sans SC', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}

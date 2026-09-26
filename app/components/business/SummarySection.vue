@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SummarySectionProps } from '../../../types/ui';
+import type { SummarySectionProps } from '@types-project/ui';
 
 withDefaults(defineProps<SummarySectionProps>(), {
   description: '',

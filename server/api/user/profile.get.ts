@@ -1,7 +1,7 @@
-import type { PicaProfileData } from '../../../types/pica-api';
+import type { PicaProfileData } from '~/types/pica-api';
 import { defineEventHandler } from 'h3';
-import { requireAuthorization, toApiError } from '../../utils/apiHelpers';
-import { picaProfile, unwrapPicaData } from '../../utils/picComicAPI';
+import { requireAuthorization, toApiError } from '~/server/utils/apiHelpers';
+import { picaProfile, unwrapPicaData } from '~/server/utils/picComicAPI';
 
 export default defineEventHandler(async (event) => {
   try {

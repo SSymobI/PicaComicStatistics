@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import type { UserProfileCardProps } from '../../../types/ui';
+import type { UserProfileCardProps } from '@types-project/ui';
+import placeholder from '~/assets/image/pica_placeholder.jpg';
 
 defineProps<UserProfileCardProps>();
 
 function handleImageError(event: Event): void {
   const target = event.target;
-  if (target instanceof HTMLImageElement)
-    target.style.display = 'none';
+  if (target instanceof HTMLImageElement && target.dataset.fallback !== 'true') {
+    target.dataset.fallback = 'true';
+    target.src = placeholder;
+  }
 }
 </script>
 
