@@ -1,4 +1,4 @@
-import { PicaComicAPIConfig } from '../constants/pica';
+import { PicaComicAPIConfig } from '~/server/constants/pica';
 
 export type PicaRequestHeaders = Record<string, string>;
 

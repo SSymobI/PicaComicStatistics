@@ -10,3 +10,4 @@ dist/
 older/*
 !older/.gitkeep
 dist/
+.pnpm-store/

@@ -1,12 +1,12 @@
-import type { AiSummary } from '../../types/ai';
-import type { PicaComicDetail } from '../../types/domain';
-import type { PicaFavouriteData, PicaKeywordsData, PicaLeaderboardData } from '../../types/pica-api';
-import type { RuntimeCapabilities, SummaryReportState } from '../../types/runtime';
-import type { StatsResult } from '../../types/stats';
-import { QueueMessages, StorageKeys } from '~/constants/routes';
-import { ClientConfig, ClientFetchPacing } from '~/constants/statistics';
-import { cacheStore } from '~/utils/cache';
-import { computeStatsResult } from '~/utils/stats';
+import type { AiSummary } from '@types-project/ai';
+import type { PicaComicDetail } from '@types-project/domain';
+import type { PicaFavouriteData, PicaKeywordsData, PicaLeaderboardData } from '@types-project/pica-api';
+import type { RuntimeCapabilities, SummaryReportState } from '@types-project/runtime';
+import type { StatsResult } from '@types-project/stats';
+import { QueueMessages, StorageKeys } from '@/constants/routes';
+import { ClientConfig, ClientFetchPacing } from '@/constants/statistics';
+import { cacheStore } from '@/utils/cache';
+import { computeStatsResult } from '@/utils/stats';
 
 function wait(ms: number): Promise<void> {
   return new Promise(resolve => window.setTimeout(resolve, ms));

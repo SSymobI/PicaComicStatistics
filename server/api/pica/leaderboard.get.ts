@@ -1,9 +1,9 @@
-import type { PicaLeaderboardData } from '../../../types/pica-api';
-import type { LeaderboardTimeRange } from '../../constants/pica';
+import type { LeaderboardTimeRange } from '~/server/constants/pica';
+import type { PicaLeaderboardData } from '~/types/pica-api';
 import { defineEventHandler, getQuery } from 'h3';
-import { LeaderboardParam } from '../../constants/pica';
-import { requireAuthorization, toApiError } from '../../utils/apiHelpers';
-import { picaLeaderboard, unwrapPicaData } from '../../utils/picComicAPI';
+import { LeaderboardParam } from '~/server/constants/pica';
+import { requireAuthorization, toApiError } from '~/server/utils/apiHelpers';
+import { picaLeaderboard, unwrapPicaData } from '~/server/utils/picComicAPI';
 
 const validRanges = new Set<string>([
   LeaderboardParam.TIME_H24,

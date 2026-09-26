@@ -1,12 +1,13 @@
-import type { AiSummary } from '../../../types/ai';
-import type { StatsResult } from '../../../types/stats';
+import type { AiSummary } from '~/types/ai';
+import type { StatsResult } from '~/types/stats';
 import { useRuntimeConfig } from '#imports';
 import { createError, defineEventHandler, getHeader, readBody } from 'h3';
 import OpenAI from 'openai';
-import { AiDefaults, AiErrorCode, AiErrorMessages, AiLimits, AiPrompts } from '../../constants/ai';
-import { requireAuthorization, toApiError } from '../../utils/apiHelpers';
-import { picaProfile, unwrapPicaData } from '../../utils/picComicAPI';
-import { parseStatsResult } from '../../utils/statsSchema';
+import { AiDefaults, AiErrorCode, AiErrorMessages, AiLimits, AiPrompts } from '~/server/constants/ai';
+import { ApiErrorCode, ApiErrorMessages, HttpStatus } from '~/server/constants/errors';
+import { requireAuthorization, toApiError } from '~/server/utils/apiHelpers';
+import { picaProfile, unwrapPicaData } from '~/server/utils/picComicAPI';
+import { parseStatsResult } from '~/server/utils/statsSchema';
 
 const dailyUsage = new Map<string, { day: string; count: number }>();
 
@@ -98,24 +99,24 @@ function parseOutput(content: string, statsGeneratedAt: string): Omit<AiSummary,
       paragraphs = [lines[0] ?? '', lines.slice(1).join('\n')];
   }
   if (paragraphs.length < AiDefaults.PARAGRAPH_COUNT)
-    throw createError({ statusCode: 502, statusMessage: AiErrorMessages.AI_GENERATION_FAILED, data: { code: AiErrorCode.AI_GENERATION_FAILED } });
+    throw createError({ statusCode: HttpStatus.BAD_GATEWAY, statusMessage: AiErrorMessages.AI_GENERATION_FAILED, data: { code: AiErrorCode.AI_GENERATION_FAILED } });
   return { generatedAt: new Date().toISOString(), statsGeneratedAt, persona: paragraphs[0] ?? '', analysis: paragraphs.slice(1).join('\n\n') };
 }
 
 function aiProviderError(error: unknown): { statusCode: number; statusMessage: string; code: string } {
   if (!(error instanceof OpenAI.APIError))
-    return { statusCode: 502, statusMessage: AiErrorMessages.AI_GENERATION_FAILED, code: AiErrorCode.AI_GENERATION_FAILED };
-  if (error.status === 401 || error.status === 403)
-    return { statusCode: 502, statusMessage: 'AI 服务认证失败，请检查服务端 API Key', code: 'AI_PROVIDER_AUTH_FAILED' };
-  if (error.status === 404)
-    return { statusCode: 502, statusMessage: 'AI 模型或接口地址不存在，请检查模型和 Base URL', code: 'AI_PROVIDER_NOT_FOUND' };
-  if (error.status === 429)
-    return { statusCode: 503, statusMessage: 'AI 服务当前限流或额度不足，请稍后重试', code: 'AI_PROVIDER_RATE_LIMITED' };
-  if (error.status === 400)
-    return { statusCode: 502, statusMessage: 'AI 服务拒绝了请求，请检查模型支持的参数', code: 'AI_PROVIDER_BAD_REQUEST' };
-  if (error.status && error.status >= 500)
-    return { statusCode: 503, statusMessage: 'AI 服务暂时不可用，请稍后重试', code: 'AI_PROVIDER_UNAVAILABLE' };
-  return { statusCode: 502, statusMessage: AiErrorMessages.AI_GENERATION_FAILED, code: AiErrorCode.AI_GENERATION_FAILED };
+    return { statusCode: HttpStatus.BAD_GATEWAY, statusMessage: AiErrorMessages.AI_GENERATION_FAILED, code: AiErrorCode.AI_GENERATION_FAILED };
+  if (error.status === HttpStatus.UNAUTHORIZED || error.status === HttpStatus.FORBIDDEN)
+    return { statusCode: HttpStatus.BAD_GATEWAY, statusMessage: AiErrorMessages.AI_PROVIDER_AUTH_FAILED, code: AiErrorCode.AI_PROVIDER_AUTH_FAILED };
+  if (error.status === HttpStatus.NOT_FOUND)
+    return { statusCode: HttpStatus.BAD_GATEWAY, statusMessage: AiErrorMessages.AI_PROVIDER_NOT_FOUND, code: AiErrorCode.AI_PROVIDER_NOT_FOUND };
+  if (error.status === HttpStatus.TOO_MANY_REQUESTS)
+    return { statusCode: HttpStatus.SERVICE_UNAVAILABLE, statusMessage: AiErrorMessages.AI_PROVIDER_RATE_LIMITED, code: AiErrorCode.AI_PROVIDER_RATE_LIMITED };
+  if (error.status === HttpStatus.BAD_REQUEST)
+    return { statusCode: HttpStatus.BAD_GATEWAY, statusMessage: AiErrorMessages.AI_PROVIDER_BAD_REQUEST, code: AiErrorCode.AI_PROVIDER_BAD_REQUEST };
+  if (error.status && error.status >= HttpStatus.INTERNAL_SERVER_ERROR)
+    return { statusCode: HttpStatus.SERVICE_UNAVAILABLE, statusMessage: AiErrorMessages.AI_PROVIDER_UNAVAILABLE, code: AiErrorCode.AI_PROVIDER_UNAVAILABLE };
+  return { statusCode: HttpStatus.BAD_GATEWAY, statusMessage: AiErrorMessages.AI_GENERATION_FAILED, code: AiErrorCode.AI_GENERATION_FAILED };
 }
 
 export default defineEventHandler(async (event) => {
@@ -131,16 +132,16 @@ export default defineEventHandler(async (event) => {
     stats = parseStatsResult(await readBody<unknown>(event));
   }
   catch {
-    throw createError({ statusCode: 400, statusMessage: AiErrorMessages.INVALID_STATS, data: { code: AiErrorCode.INVALID_STATS } });
+    throw createError({ statusCode: HttpStatus.BAD_REQUEST, statusMessage: AiErrorMessages.INVALID_STATS, data: { code: AiErrorCode.INVALID_STATS } });
   }
   const config = useRuntimeConfig(event);
   if (!config.aiApiKey || !config.aiBaseUrl || !config.aiModel)
-    throw createError({ statusCode: 422, statusMessage: AiErrorMessages.AI_NOT_CONFIGURED, data: { code: AiErrorCode.AI_NOT_CONFIGURED } });
+    throw createError({ statusCode: HttpStatus.UNPROCESSABLE_ENTITY, statusMessage: AiErrorMessages.AI_NOT_CONFIGURED, data: { code: AiErrorCode.AI_NOT_CONFIGURED } });
   let userId: string;
   try {
     userId = profileUserId(unwrapPicaData(await picaProfile(event, token))) || '';
     if (!userId)
-      throw createError({ statusCode: 401, statusMessage: 'Pica profile missing userId', data: { code: 'UNAUTHORIZED' } });
+      throw createError({ statusCode: HttpStatus.UNAUTHORIZED, statusMessage: ApiErrorMessages.PICA_PROFILE_MISSING_USER_ID, data: { code: ApiErrorCode.UNAUTHORIZED } });
   }
   catch (error) {
     throw toApiError(error);
@@ -148,7 +149,7 @@ export default defineEventHandler(async (event) => {
   const day = localDay(getHeader(event, 'x-timezone'));
   const usage = dailyUsage.get(userId);
   if (usage?.day === day && usage.count >= AiLimits.DAILY_LIMIT)
-    throw createError({ statusCode: 429, statusMessage: 'AI 今日调用次数已达上限' });
+    throw createError({ statusCode: HttpStatus.TOO_MANY_REQUESTS, statusMessage: AiErrorMessages.AI_DAILY_LIMIT_EXCEEDED, data: { code: AiErrorCode.AI_DAILY_LIMIT_EXCEEDED } });
   const temperature = Math.min(AiLimits.TEMPERATURE_MAX, Math.max(AiLimits.TEMPERATURE_MIN, Number(config.aiTemperature) || 0.8));
   const maxTokens = Math.min(AiLimits.MAX_TOKENS_MAX, Math.max(AiLimits.MAX_TOKENS_MIN, Number(config.aiMaxTokens) || 1000));
   try {
@@ -156,7 +157,7 @@ export default defineEventHandler(async (event) => {
     const response = await client.chat.completions.create({ model: config.aiModel, temperature, max_tokens: maxTokens, messages: [{ role: 'system', content: AiPrompts.system }, { role: 'user', content: fillPrompt(stats) }] });
     const content = response.choices[0]?.message?.content?.trim();
     if (!content)
-      throw createError({ statusCode: 502, statusMessage: 'AI 服务未返回可展示文本，请稍后重试', data: { code: 'AI_EMPTY_RESPONSE' } });
+      throw createError({ statusCode: HttpStatus.BAD_GATEWAY, statusMessage: AiErrorMessages.AI_EMPTY_RESPONSE, data: { code: AiErrorCode.AI_EMPTY_RESPONSE } });
     const result = { userId, ...parseOutput(content, stats.generatedAt) };
     dailyUsage.set(userId, usage?.day === day ? { day, count: usage.count + 1 } : { day, count: 1 });
     return result;

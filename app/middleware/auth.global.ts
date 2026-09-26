@@ -1,5 +1,5 @@
-import { AppRoutes } from '~/constants/routes';
-import { AuthStatuses } from '../../types/auth';
+import { AuthStatuses } from '@types-project/auth';
+import { AppRoutes } from '@/constants/routes';
 
 export default defineNuxtRouteMiddleware(async (to) => {
   if (to.path !== AppRoutes.SUMMARY)

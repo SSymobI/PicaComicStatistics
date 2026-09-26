@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AppRoutes, StorageKeys } from '~/constants/routes';
+import { AppRoutes, StorageKeys } from '@/constants/routes';
 
 const route = useRoute();
 const auth = useAuthStore();
@@ -18,6 +18,10 @@ const agreementSections = [
 ];
 const submitting = computed(() => auth.status === 'logging-in');
 const canSubmit = computed(() => Boolean(username.value && password.value && agreed.value && agreementRead.value && !submitting.value));
+
+useHead({
+  title: '哔咔收藏统计 | 登录',
+});
 
 function isSafeRedirect(value: unknown): value is string {
   return typeof value === 'string' && /^\/(?!\/)/.test(value) && !value.includes('://');

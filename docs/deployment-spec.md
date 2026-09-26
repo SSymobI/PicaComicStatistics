@@ -20,6 +20,8 @@
 | Cloudflare Pages | `nuxi build --preset=cloudflare-pages` | `dist/`（含 `_worker.js` Functions 入口与静态资源） | 产物存在 `dist/_worker.js/index.js`、`dist/_nuxt/` 与 `_routes.json` |
 | Docker 镜像 | 上述 Node 产物 + 多阶段 Dockerfile | 本地镜像 | `docker build` 成功 |
 
+Docker 构建上下文由 `.dockerignore` 排除宿主机的 `node_modules`、Nuxt 构建产物和本地环境文件。依赖只在 Docker 的 `deps` 阶段通过 frozen lockfile 安装，避免宿主平台依赖覆盖容器内依赖并触发无 TTY 的 pnpm 模块清理。
+
 Windows 下设置环境变量的写法与类 Unix 不同, 需在 `package.json` 脚本中通过 `cross-env` 或 Nuxt 的 `--preset` 参数表达, 避免依赖 shell 语法差异:
 
 ``` json
@@ -58,6 +60,8 @@ Windows 下设置环境变量的写法与类 Unix 不同, 需在 `package.json` 
 - 不执行冒烟测试, 不执行端到端测试。
 - 允许启用依赖缓存与 pnpm store 缓存, 但需注意 GitHub 公开仓库的 Actions 配额限制, 缓存以不超配额为前提。
 - 同一分支产生新提交时, 允许取消上一次仍在运行的流程, 以节省配额。
+
+pnpm 11.5 的非交互环境会默认阻止依赖安装脚本。工作区根目录 `pnpm-workspace.yaml` 的 `allowBuilds` 明确允许 `esbuild`、`unrs-resolver` 和 `vue-demi` 构建；Docker 依赖层必须复制该文件，确保本地、GitHub Actions 与 Docker 的 frozen install 行为一致。不得在 CI 中调用交互式 `pnpm approve-builds`。
 
 ### 3.2 master 发布
 

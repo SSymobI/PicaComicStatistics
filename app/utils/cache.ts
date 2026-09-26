@@ -1,7 +1,7 @@
-import type { AiSummary } from '../../types/ai';
-import type { CacheRead, CacheRecord, CacheRecordType, CacheTtlOptions, CacheType, CacheWriteResult, DetailCacheValue, FavouriteCacheValue, HotCacheValue, StatsCacheValue } from '../../types/cache';
-import type { Favourite, PicaComicDetail } from '../../types/domain';
-import type { StatsResult } from '../../types/stats';
+import type { AiSummary } from '@types-project/ai';
+import type { CacheRead, CacheRecord, CacheRecordType, CacheTtlOptions, CacheType, CacheWriteResult, DetailCacheValue, FavouriteCacheValue, HotCacheValue, StatsCacheValue } from '@types-project/cache';
+import type { Favourite, PicaComicDetail } from '@types-project/domain';
+import type { StatsResult } from '@types-project/stats';
 import { toRaw } from 'vue';
 
 export const CACHE_DB_NAME = 'pica-comic-statistics';

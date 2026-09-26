@@ -1,6 +1,6 @@
-import type { PicaComic, PicaComicDetail } from '../../types/domain';
-import type { ComicLengthStats, DistributionPair, FavouriteStats, HotRelationStats, InteractionItem, InteractionStats, KeywordRelationStats, LifecycleStats, LikeRateItem, PopularityStats, StatsInput, StatsResult, TopComicItem, UpdateBucket, WordStatItem, WordStats, YearBucket } from '../../types/stats';
-import { ClientConfig, ComicLengthThresholds, InteractionWeights, NormalizeConfig, StatThresholds, UpdateRecencyBuckets } from '~/constants/statistics';
+import type { PicaComic, PicaComicDetail } from '@types-project/domain';
+import type { ComicLengthStats, DistributionPair, FavouriteStats, HotRelationStats, InteractionItem, InteractionStats, KeywordRelationStats, LifecycleStats, LikeRateItem, PopularityStats, StatsInput, StatsResult, TopComicItem, UpdateBucket, WordStatItem, WordStats, YearBucket } from '@types-project/stats';
+import { ClientConfig, ComicLengthThresholds, InteractionWeights, NormalizeConfig, StatThresholds, UpdateRecencyBuckets } from '@/constants/statistics';
 
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const n = (v: unknown) => finite(v) ? v : 0;

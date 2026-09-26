@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { StatusBannerProps } from '../../../types/ui';
+import type { StatusBannerProps } from '@types-project/ui';
 
 withDefaults(defineProps<StatusBannerProps>(), { tone: 'info', title: '' });
 </script>

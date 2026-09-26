@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AppButtonProps } from '../../../types/ui';
+import type { AppButtonProps } from '@types-project/ui';
 
 withDefaults(defineProps<AppButtonProps>(), {
   type: 'button',

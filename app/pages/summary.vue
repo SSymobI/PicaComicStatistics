@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SummaryMetric } from '@types-project/summary';
-import { CacheStaleNotice, QueueMessages } from '~/constants/routes';
+import { CacheStaleNotice, QueueMessages } from '@/constants/routes';
 
 const auth = useAuthStore();
 const report = useSummaryReport();
@@ -26,6 +26,10 @@ const sections = computed(() => {
     { id: 'interaction', title: '评论互动', description: '评论与互动指数。', metrics: result?.interaction.deepAnalysis ? metrics([['评论总量', result.interaction.totalComments], ['平均评论', result.interaction.avgComments.toFixed(1)], ['有效评论作品', result.interaction.validCommentCount], ['互动条目', result.interaction.interactionItems.length]]) : [], locked: !report.state.deepAnalysis },
     { id: 'platform', title: '平台关联', description: '收藏偏好与平台热榜、热搜的关联。', metrics: result ? metrics([['热榜命中', result.hotRelation.hitCount], ['热榜命中率', `${(result.hotRelation.hitRate * 100).toFixed(1)}%`], ['热搜总数', result.keywordRelation.totalKeywords], ['热搜匹配', result.keywordRelation.hitKeywordCount], ['兴趣匹配率', `${(result.keywordRelation.interestMatchRatio * 100).toFixed(1)}%`]]) : [] },
   ];
+});
+
+useHead({
+  title: '哔咔收藏统计 | 统计结果',
 });
 
 onMounted(() => { void loadReport(); });
