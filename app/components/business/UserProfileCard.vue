@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { UserProfileCardProps } from '@types-project/ui';
-import placeholder from '~/assets/image/pica_placeholder.jpg';
+import placeholder from '@/assets/image/pica_placeholder.jpg';
 
 defineProps<UserProfileCardProps>();
 

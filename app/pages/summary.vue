@@ -161,7 +161,7 @@ async function logout(): Promise<void> { await auth.logout(); }
 .ranking-table th { background: var(--brand-yellow); font-weight: 900; white-space: nowrap; }
 .inline-action { border: 2px solid #000; background: #fff; padding: .2rem .5rem; font-weight: 800; cursor: pointer; }
 .ai-detail h2 { font-size: 1.5rem; }
-.analysis-copy { max-width: 78ch; color: #171717; font-size: 1.05rem; line-height: 1.95; white-space: pre-line; }
+.analysis-copy { max-width: 100vw; color: #171717; font-size: 1.05rem; line-height: 1.95; white-space: pre-line; }
 .analysis-copy p { margin: 0 0 .85rem; }
 @media (max-width: 62rem) { .toolbar-inner { flex-wrap: wrap; padding-top: .5rem; padding-bottom: .5rem; } .toolbar-inner nav { order: 2; flex-basis: 100%; } .toolbar-actions { margin-left: auto; } }
 @media (max-width: 50rem) { .section-list, .chart-grid { grid-template-columns: 1fr; } }

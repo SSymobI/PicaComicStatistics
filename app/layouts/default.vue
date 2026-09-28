@@ -11,6 +11,9 @@
         <NuxtLink to="/summary">
           统计报告
         </NuxtLink>
+        <NuxtLink to="https://github.com/SSymobI/PicaComicStatistics" target="_blank">
+          项目仓库
+        </NuxtLink>
       </nav>
     </header>
     <main>

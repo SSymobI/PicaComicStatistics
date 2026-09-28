@@ -1,3 +1,5 @@
+> 来源于 [PicaComicNow](https://github.com/FreeNowOrg/PicaComicNow) 项目
+
 # PicaComic (哔咔) API 文档
 
 > 基于 PicaComicNow 项目逆向整理，API 基地址：`https://picaapi.picacomic.com/`
