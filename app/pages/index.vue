@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import placeholder from '@/assets/image/pica_placeholder.jpg';
+import splash from '@/assets/image/pica_splash.png';
 import { AppRoutes } from '@/constants/routes';
-import placeholder from '~/assets/image/pica_placeholder.jpg';
-import splash from '~/assets/image/pica_splash.png';
 
 const auth = useAuthStore();
 const ctaRoute = computed(() => auth.isAuthenticated ? AppRoutes.SUMMARY : AppRoutes.LOGIN);
