@@ -21,7 +21,7 @@ PicaComicStatistics 是一个 Nuxt 4 SPA，用于通过哔咔漫画服务端代�
 
 ``` bash
 pnpm install --frozen-lockfile      // 安装依赖
-pnpm run dev						// 启动开发环境
+pnpm run dev                        // 启动开发环境
 pnpm run build:node                 // 构建 Node.js 版本
 pnpm run build:cf                   // 构建 Cloudflare Worker 版本
 pnpm run build:docker               // 构建 Docker 镜像
