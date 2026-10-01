@@ -24,7 +24,8 @@
 | 项 | 判据 |
 |---|---|
 | 单元测试 | `pnpm test:unit` 通过 |
-| 测试范围 | 仅当功能涉及**核心统计函数**时才要求新增单测; 其余功能不强制 |
+| 测试范围 | 核心统计函数必须覆盖; 上游签名、AI 载荷校验等关键纯逻辑同样要求覆盖; 其余功能不强制 |
+| 测试位置 | 统一放在 `tests/unit/` 下并镜像源码路径, 不与被测文件就近放置 |
 | 测试规模 | 每个函数少量代表性用例覆盖主要分支, 不做过度单测 |
 | 测试解耦 | 统计函数必须为纯函数, 不直接读写 IndexedDB |
 | 不做的测试 | 集成测试 / 端到端测试 / 组件测试 / 覆盖率门槛, 均不要求 |
@@ -38,7 +39,7 @@
 | 数据模型 | 字段、类型、nullable、默认值与 `docs/data-model.md` 一致 |
 | 缓存 | Object Store、keyPath、TTL 起算点与 `PROJECT_SPEC.md` 缓存机制一致; 无跨用户读取路径 |
 | 安全边界 | 无凭证类数据外发; 无未声明的对外接口; 关键密钥不进入客户端 |
-| 视觉 | 符合 `docs/design-guid.md`; 无 `border-radius`; 配色取自主题变量 |
+| 视觉 | 符合 `docs/design-guid.md`; 无 `border-radius`; 色值只取自 `tailwind.css` 的 `@theme` 令牌（组件内无字面色值）; 动效只使用 `--motion-*` 令牌并遵循 `prefers-reduced-motion` |
 | 登录协议 | 用户协议必须打开全文后才能勾选; 未同意时登录按钮禁用; 密码不由应用明文持久化 |
 
 ### 4. 用户体验与错误状态
@@ -68,6 +69,7 @@
 ### 6. 提交规范
 
 - 提交信息符合 Conventional Commits（见 `./commit-rule.md`）。
+- 提交前由 husky 的 `pre-commit` 钩子执行 lint-staged（`eslint --fix --no-warn-ignored`）: 自动修复结果会被重新暂存, 修复后仍存在的错误中断提交。
 - 通过 PR 合入 `master`, 禁止直接推送。
 - PR 描述按 `./pr-rule.md` 模板填写, **不得编造验证结论**。
 
@@ -86,6 +88,9 @@
 | ~~D-05~~ | Docker 基础镜像与分层 | **确认采用建议方案**：基础镜像 `node:24-alpine`, 三阶段构建（依赖安装 → 构建 → 运行时） |
 | ~~D-06~~ | `WordStats.excludedZeroCount` 是否暴露 | **暴露**给前端与 AI 模块 |
 | ~~D-07~~ | Preview 部署是否配置运行时变量 | **配置**（与 Production 同等配置） |
+| ~~D-08~~ | 提交前 lint 自动修复方案 | **husky 9 + lint-staged 17**：`pre-commit` 钩子对暂存文件执行 `eslint --fix --no-warn-ignored`, 由 `prepare` 脚本安装; 详见 `PROJECT_SPEC.md` 质量门禁 |
+| ~~D-09~~ | 动效范围与实现方案 | **方案 A**：纯 CSS 令牌 + Vue 内建 `<Transition>` + 自写 `v-reveal` 指令（共享 IntersectionObserver）+ ECharts 内建入场动画, **0 新增依赖**; 令牌在 `app/assets/css/main.css` 与 `app/constants/motion.ts`, 类型在 `types/animation.ts`; 原「不做页面切换过渡动画」条款已按此修订, 详见 `design-guid.md` 动画范围 |
+| ~~D-10~~ | 页面切换进度条的实现方式 | **Nuxt 内建 `useLoadingIndicator` + 自绘野兽派细条**（0 新增依赖）: `throttle 0`(切换即出现)、`duration 1200`、`hideDelay 300`、`resetDelay 400`, 参数集中在 `app/constants/ui.ts` 的 `UiRouteProgress`; 组件 `app/components/business/RouteProgressBar.vue` 挂载在 `app/app.vue`; 只动画 `transform: scaleX()` 与整条透明度, `prefers-reduced-motion` 下进度恒定不做增长; 详见 `design-guid.md` 动画范围与布局 |
 
 **D-05 结论**: 基础镜像 `node:24-alpine`, 三阶段构建（依赖安装 → 构建 → 运行时）。三阶段的分工: 第一阶段安装全部依赖, 第二阶段执行 `build:node` 产出 `.output/`, 第三阶段仅复制 `.output/` 与生产依赖并以非 root 用户启动。
 
@@ -116,6 +121,8 @@
 | V-14 | `error` 态下本地既无缓存又无用户信息时的回退分支 | 实测该分支表现 |
 | V-15 | ~~Cloudflare 免费档限额的当前实际数值~~ | **已确证**（2026-09-05 官方文档），见 `./cloudflare-pages-guide.md` 第七节 |
 | V-16 | CF 免费档下完整统计是否触及限额 | 部署后跑一次完整统计并观察日志 |
+| V-17 | 动效在真实浏览器中的观感, 以及 `prefers-reduced-motion` 与 `<600px` 无滚动条约束下的实际表现 | DevTools 模拟 reduce 动效, 并在 375 / 600 / 1200 宽度实测三页切换（含顶部路由进度条的出现时机与遮挡关系）与 `/summary` 长页滚动入场 |
+| V-18 | Cloudflare Workers/Pages Functions 运行时是否提供 `CF_PAGES` 环境变量, 以及 `navigator.userAgent` 是否为 `Cloudflare-Workers` | 部署后请求 `/api/runtime/capabilities`, 核对返回的 `pacingProfile` 为 `conservative`、`maxFavouritePagesPerCall` 为 1（本地已确认 Node 产物返回 `aggressive` / 5, CF 产物编译值为 `cloudflare-pages`） |
 
 ### 2.2.1 相关说明
 

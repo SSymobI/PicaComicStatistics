@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# 提交前对暂存文件执行 ESLint 自动修复（lint-staged）；修复后仍存在的错误会阻止本次提交。
+pnpm exec lint-staged

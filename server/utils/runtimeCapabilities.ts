@@ -1,6 +1,14 @@
 import { PacingProfiles, RuntimeCapabilities } from '~/server/constants/pica';
 
+/** Cloudflare Workers/Pages Functions 运行时把 `navigator.userAgent` 固定为 `Cloudflare-Workers`。 */
+function isCloudflareWorkersRuntime(): boolean {
+  return typeof navigator !== 'undefined' && /cloudflare-workers/i.test(navigator.userAgent ?? '');
+}
+
 export function isCloudflareBuild(presetOverride?: string): boolean {
+  // 运行时信号优先：即使构建期未传入 preset，部署在 CF 上也必须走保守档（能力矩阵下界）。
+  if (isCloudflareWorkersRuntime())
+    return true;
   if (typeof process === 'undefined')
     return true;
   const env = typeof process !== 'undefined' ? process.env : undefined;

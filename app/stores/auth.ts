@@ -1,7 +1,8 @@
 import type { AuthStatus, AuthUser, LoginResponse, ProfileResponse } from '@types-project/auth';
 import { AuthStatuses } from '@types-project/auth';
 import { defineStore } from 'pinia';
-import { AppRoutes, StorageKeys } from '@/constants/routes';
+import { ApiRoutes, AppRoutes, AuthMessages, StorageKeys } from '@/constants/routes';
+import { isUnauthorizedError } from '@/utils/http';
 
 function extractToken(payload: LoginResponse): string | undefined {
   return payload.token ?? payload.data?.token;
@@ -37,10 +38,7 @@ function extractUser(payload: ProfileResponse): AuthUser | undefined {
 }
 
 function isUnauthorized(error: unknown): boolean {
-  if (!error || typeof error !== 'object')
-    return false;
-  const status = (error as { status?: number; statusCode?: number }).status ?? (error as { statusCode?: number }).statusCode;
-  return status === 401;
+  return isUnauthorizedError(error);
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -79,7 +77,7 @@ export const useAuthStore = defineStore('auth', {
       this.status = AuthStatuses.VALIDATING;
       this.validationPromise = (async () => {
         try {
-          const payload = await $fetch<ProfileResponse>('/api/user/profile', { headers: { Authorization: `Bearer ${token}` } });
+          const payload = await $fetch<ProfileResponse>(ApiRoutes.PROFILE, { headers: { Authorization: `Bearer ${token}` } });
           this.user = extractUser(payload);
           if (!this.user?.id)
             throw new Error('Profile is missing userId');
@@ -89,13 +87,11 @@ export const useAuthStore = defineStore('auth', {
         }
         catch (error) {
           if (isUnauthorized(error)) {
-            this.clearToken();
-            this.status = AuthStatuses.EXPIRED;
-            await navigateTo(AppRoutes.HOME);
+            await this.expire();
             return false;
           }
           this.status = AuthStatuses.ERROR;
-          this.errorMessage = '暂时无法校验登录状态，请稍后重试。';
+          this.errorMessage = AuthMessages.VALIDATION_FAILED;
           return false;
         }
         finally {
@@ -108,7 +104,7 @@ export const useAuthStore = defineStore('auth', {
       this.status = AuthStatuses.LOGGING_IN;
       this.errorMessage = '';
       try {
-        const payload = await $fetch<LoginResponse>('/api/user/login', { method: 'POST', body: { email: username, password } });
+        const payload = await $fetch<LoginResponse>(ApiRoutes.LOGIN, { method: 'POST', body: { email: username, password } });
         const token = extractToken(payload);
         if (!token)
           throw new Error('missing token');
@@ -123,14 +119,14 @@ export const useAuthStore = defineStore('auth', {
         if (currentStatus === AuthStatuses.EXPIRED || currentStatus === AuthStatuses.ERROR)
           return false;
         this.status = AuthStatuses.ANONYMOUS;
-        this.errorMessage = isUnauthorized(error) ? '账号或密码错误。' : '无法连接哔咔服务，请稍后重试或检查服务端网络连接。';
+        this.errorMessage = isUnauthorized(error) ? AuthMessages.INVALID_CREDENTIALS : AuthMessages.NETWORK_FAILED;
         return false;
       }
     },
     async validateProfile(token?: string): Promise<boolean> {
       const resolvedToken = token ?? this.token;
       try {
-        const payload = await $fetch<ProfileResponse>('/api/user/profile', { headers: { Authorization: `Bearer ${resolvedToken}` } });
+        const payload = await $fetch<ProfileResponse>(ApiRoutes.PROFILE, { headers: { Authorization: `Bearer ${resolvedToken}` } });
         this.user = extractUser(payload);
         if (!this.user?.id)
           throw new Error('Profile is missing userId');
@@ -139,15 +135,20 @@ export const useAuthStore = defineStore('auth', {
       }
       catch (error) {
         if (isUnauthorized(error)) {
-          this.clearToken();
-          this.status = AuthStatuses.EXPIRED;
-          await navigateTo(AppRoutes.HOME);
+          await this.expire();
           return false;
         }
         this.status = AuthStatuses.ERROR;
-        this.errorMessage = '暂时无法校验登录状态，请稍后重试。';
+        this.errorMessage = AuthMessages.VALIDATION_FAILED;
         return false;
       }
+    },
+    /** 凭证失效（401 / JWT 过期）的统一迁移：清 token → `expired` → 回首页，见 auth-spec 第四节。 */
+    async expire(): Promise<void> {
+      this.clearToken();
+      this.status = AuthStatuses.EXPIRED;
+      this.errorMessage = '';
+      await navigateTo(AppRoutes.HOME);
     },
     async logout(): Promise<void> {
       this.clearToken();

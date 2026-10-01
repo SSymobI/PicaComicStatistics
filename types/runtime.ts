@@ -1,3 +1,14 @@
+/** 深度分析队列状态（与 `docs/PROJECT_SPEC.md` 的枚举 `QueueStatus` 一致）。 */
+export const QueueStatus = {
+  IDLE: 'idle',
+  RUNNING: 'running',
+  CANCELLED: 'cancelled',
+  PARTIAL: 'partial',
+  DONE: 'done',
+} as const;
+
+export type QueueStatusValue = typeof QueueStatus[keyof typeof QueueStatus];
+
 export interface RuntimeCapabilities {
   canAggregateFavouritePages: boolean;
   maxFavouritePagesPerCall: number;
@@ -29,7 +40,7 @@ export interface SummaryReportState {
   keywords: Array<string | { keyword?: string; name?: string }>;
   details: import('./domain').PicaComicDetail[];
   deepAnalysis: boolean;
-  deepStatus: 'idle' | 'running' | 'partial' | 'done';
+  deepStatus: QueueStatusValue;
   deepCompleted: number;
   deepTotal: number;
   deepFailed: string[];

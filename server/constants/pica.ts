@@ -1,6 +1,11 @@
 /**
  * 哔咔上游接口的固定参数。签名密钥只在服务端代码中使用，绝不暴露到 public runtimeConfig。
  */
+export const PicaUpstreamDefaults = {
+  /** `NUXT_PICA_UPSTREAM_TIMEOUT_MS` 未设置或非法时生效。 */
+  TIMEOUT_MS: 8000,
+} as const;
+
 export const PicaComicAPIEndpoint = {
   SIGN_IN: 'auth/sign-in',
   PROFILE: 'users/profile',

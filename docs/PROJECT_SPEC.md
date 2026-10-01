@@ -41,7 +41,7 @@ PicaComicStatistics 哔咔漫画个人收藏统计
 - @antfu/eslint-config
 - tailwindcss (v4)
 - vitest
-- husky
+- husky + lint-staged
 - pnpm
 
 ### UI 组件方案
@@ -91,6 +91,7 @@ UI 组件采用 **BoldKit**（Neubrutalism 组件库, MIT, 基于 shadcn/ui 与 
 | 前端常量（图表载体、UI 相关枚举） | `app/constants/` |
 | Vendored UI 组件（BoldKit 源码） | `app/components/ui/`（代码质量豁免区） |
 | 业务组件 | `app/components/business/` |
+| 单元测试 | `tests/unit/`（目录结构镜像源码路径）, 共享初始化在 `tests/setup.ts` |
 
 项目目录结构: Nuxt官方结构
 
@@ -107,6 +108,7 @@ CI 中 Docker 环节只做 `docker build` 与冒烟启动校验, 不推送镜像
 ## 构建与运行时的密钥边界
 
 - `NUXT_AI_API_KEY` 等模型密钥为**运行时**必填, **构建时不得为必填**。任何构建产物(CF Pages / Node / Docker)在缺少该密钥时必须能成功构建。
+- `nuxt.config.ts` 的 `runtimeConfig` 默认值**不得读取密钥类环境变量**(`process.env.NUXT_AI_*` 等): 构建期读取会把真实密钥编译进 `.output/` 与 `dist/_worker.js`, 与「运行时注入」冲突。默认值一律留空或取非敏感常量, 由 Nuxt 的 `NUXT_*` 环境变量覆盖机制在运行时注入。
 - 密钥校验发生在首次调用 AI 接口时的服务端运行时, 缺失时该接口返回明确错误, 不阻塞站点启动与统计功能。
 - CI 的所有构建任务**禁止**注入真实密钥, 也不得因缺少密钥而失败。
 
@@ -120,6 +122,8 @@ CI 中 Docker 环节只做 `docker build` 与冒烟启动校验, 不推送镜像
 - typescript文件以及方法名使用小驼峰,枚举名使用大驼峰
 - 所有自定义type,interface,declare等d.ts文件单独分类至于统一目录内,不允许在业务脚本内定义
 - 禁止在vue组件和业务实现typescript文件中使用不必要的魔法值, 魔法值应从配置文件或枚举中读取
+- 样式令牌唯一真源为 `app/assets/css/tailwind.css` 的 `@theme`; 组件内不得出现字面色值, 颜色一律取自令牌或工具类
+- 组件级结构样式保留在 SFC 的 `<style scoped>` 中, 不整体迁移到全局样式表; 跨组件动效契约类归口 `tailwind.css`, 详见 ./design-guid.md 的「样式实现约定」
 
 ### 质量门禁
 
@@ -128,11 +132,13 @@ CI 中 Docker 环节只做 `docker build` 与冒烟启动校验, 不推送镜像
 | 门禁 | 命令 | 说明 |
 |---|---|---|
 | Lint | `pnpm lint` | `@antfu/eslint-config`, 不允许 warning 残留 |
-| Type Check | `pnpm typecheck` | `nuxt typecheck`(内部使用 `vue-tsc`), 启用 `strict` |
-| Unit Test | `pnpm test:unit` | 仅核心统计函数, 见「测试规格」 |
+| Type Check | `pnpm typecheck` | `tsc -p .nuxt/tsconfig.json` + `tsc -p tests/tsconfig.json`(应用与测试分别检查), 启用 `strict` |
+| Unit Test | `pnpm test:unit` | 核心统计函数与关键纯逻辑, 见「测试规格」 |
 | Build 可行性 | `pnpm build:node` / `pnpm build:cf` / `pnpm build:docker` | 三个产物均需构建成功 |
 
 `@antfu/eslint-config` 的默认格式化偏好(分号、引号)与本节要求可能存在冲突, 需通过在 `nuxt.config`/`eslint.config` 中显式配置 stylistic 选项对齐为「句末分号 + 单引号」, 不得依赖默认值。
+
+本地提交由 husky 的 `pre-commit` 钩子执行 lint-staged, 对暂存文件运行 `eslint --fix --no-warn-ignored`: 可自动修复的问题在提交前修正并重新暂存, 修复后仍存在的错误中断本次提交。钩子由 `pnpm install` 触发的 `prepare` 脚本(`husky`)安装, 任务配置见 `package.json` 的 `lint-staged` 字段; 门禁的最终判定仍以 CI 中完整的 `pnpm lint` 为准。
 
 ### 运行环境版本
 
@@ -1085,12 +1091,21 @@ AI模块根据结构化统计结果生成用户收藏画像总结。
 
 - 一句话 AI 画像位于用户资料之后；详细 AI 画像位于全部图表和词云之后。
 - 深度分析结果按上述位置就地替换对应区块内容, 不另开页面。
-- 未开启深度分析时, 生命周期与评论互动区块**保留框架并显示「开启深度分析后可见」引导与一键开启按钮**, 不整块隐藏。
+- 未开启深度分析时, 生命周期与评论互动区块**保留框架并显示「开启深度分析后可见」引导文案**, 不整块隐藏; 区块内**不提供**触发按钮, 深度分析统一由顶部操作栏的「深度分析」按钮发起。
+- 页面右下角提供固定的「回到顶部」按钮：向下滚动超过阈值（`app/constants/ui.ts` 的 `UiScroll.BACK_TO_TOP_OFFSET_PX`）后出现, 在顶部时隐藏; 点击回到页面顶部, 遵循 `prefers-reduced-motion`。
+
+主题分组（第 5 项的内部结构）:
+
+- 第 5 项按统计主题分组, **每个主题是一个锚点区块, 由「指标卡 + 该主题的图表」组成**; 顶部报告导航按主题跳转, 不使用图表类型的独立分组。
+- 主题与所含图表固定对应: 收藏概览（无图表）、内容偏好（分类/标签/作者词云 + 分类/标签/作者分布）、作品热度（热度排行榜）、内容规模（无图表）、生命周期（创建年份 + 更新状态）、评论互动（评论 TOP10）、平台关联（无图表）。
+- 图表不得脱离其统计主题单独成组; 新增图表时应归入对应主题区块, 主题顺序与导航顺序必须一致。
+- 排行表格（浏览量 TOP10 / 点赞量 TOP10 / 评论数量 TOP10）首列为「序号」, 取值为按该表指标排序后的名次 1..N, 使用固定窄列宽。
 
 ### 2.页面状态规格
 
 | 状态 | 表现 |
 |---|---|
+| 路由切换中 | 顶部固定细进度条在切换开始时立即出现, 切换结束后淡出（`app/components/business/RouteProgressBar.vue`, 参数取 `app/constants/ui.ts` 的 `UiRouteProgress`）; 固定定位不改变布局、不阻塞内容, 与 `/summary` 的分页拉取进度相互独立 |
 | 首次报告加载中 | 分区块骨架屏（BoldKit `Skeleton`）+ 顶部细进度条; 因分页拉取需多次请求, 进度条显示已拉取页数/总页数 |
 | 深度分析进行中 | 进度条（已完成本数 / 总数）+ 百分比; 已完成部分的结果**实时就地展示**, 不等全部完成 |
 | 深度分析取消 | 提供「取消」按钮; 取消后**保留已完成部分的详情数据与统计结果**, 并明确标注「深度分析未完成」 |
@@ -1099,10 +1114,14 @@ AI模块根据结构化统计结果生成用户收藏画像总结。
 | AI 生成失败 | 保留全部统计图表, AI 区块显示失败提示与「重试」入口 |
 | 用户收藏为空 | 各图表区块保留框架并显示空态（BoldKit `EmptyState`）, 页面顶部提示当前账号无收藏数据 |
 | 单项数据为空 | 仅该区块显示空态, 其他区块正常; 例如热搜接口返回空数组时只影响热搜关联区块 |
-| 未开启深度分析 | 对应区块显示引导与一键开启按钮（见第 1 条） |
+| 未开启深度分析 | 对应区块显示「开启深度分析后可见」引导文案, 区块内不提供按钮（统一由顶部操作栏触发, 见第 1 条） |
 | 重新生成进行中 | 按钮禁用并显示进行中状态 |
 
 状态文案与空态文案统一由枚举提供, 不得硬编码在组件内。
+
+时间显示: 「报告生成于」提示与缓存提示中的时间统一按 `CacheStaleNotice.TIME_FORMAT`（`YYYY-MM-DD HH:mm:ss`）渲染, 并以 `Intl.DateTimeFormat` 按用户所在时区换算（实现见 `app/utils/datetime.ts`, 无法解析时回退 `CacheStaleNotice.UNKNOWN_TIME`）; 不得直接输出 ISO 字符串。
+
+动效与过渡的实现约束见 `./design-guid.md` 的「动画范围」：只允许动画 `transform` / `opacity`, 时长与缓动取 `app/assets/css/main.css` 的 `--motion-*` 令牌, JS 侧数值取 `app/constants/motion.ts`, 并遵循 `prefers-reduced-motion`。
 
 ## 接口契约
 
@@ -1141,6 +1160,7 @@ AI模块根据结构化统计结果生成用户收藏画像总结。
 | `NUXT_AI_MAX_TOKENS` | 输出上限 | `1000` | 建议 800~1200 |
 | `NUXT_AI_TIMEOUT_MS` | LLM 调用超时 | `30000` | 新增建议 |
 | `NUXT_PICA_UPSTREAM_TIMEOUT_MS` | 上游哔咔请求超时 | `8000` | 新增建议，三环境可调 |
+| `NUXT_PICA_BASE_URL` | 上游哔咔接口基址 | 代码内置 `PicaComicAPIConfig.BASE_URL` | 仅服务端；留空时回退常量，便于指向镜像/测试环境 |
 | `NITRO_PORT` / `NITRO_HOST` | Docker/Node 监听 | `3000` | 仅容器/裸机部署 |
 
 ### 运行时能力矩阵
@@ -1159,6 +1179,7 @@ AI模块根据结构化统计结果生成用户收藏画像总结。
 实现约束:
 
 - 前端不硬编码判断部署环境, 由服务端通过 `/api/runtime/capabilities` 暴露当前产物能力, 前端据返回值选择数据获取路径。
+- 服务端能力判定必须**双重依据**: 构建期写入 `runtimeConfig.runtimePreset` 的 Nitro preset(`nuxt build --preset=...` 不经过 `process.env`, 需在 `nuxt.config` 中显式解析 `--preset`), 以及 Cloudflare Workers 运行时信号(`navigator.userAgent === 'Cloudflare-Workers'`)。仅靠 `process.env.CF_PAGES` 不可靠: 该变量属于 CF Pages 的构建期环境。
 - Cloudflare 产物为能力下界: 任何在 CF 上不可用的策略不得作为默认路径。
 - 未声明支持的能力字段, 前端一律按不支持的保守路径执行。
 
@@ -1217,10 +1238,11 @@ export const PacingProfiles = {
 | 项 | 决定 |
 |---|---|
 | 框架 | Vitest |
-| 测试范围 | 仅核心统计函数(纯函数) |
+| 测试范围 | 核心统计函数(纯函数); 另覆盖上游签名(`createPicaComicHeaders`)与 AI 载荷校验(`parseStatsResult`)等关键纯逻辑 |
 | 不做的测试 | 集成测试、端到端测试、API 契约测试、组件测试、视觉回归 |
-| 测试环境 | `jsdom` + `fake-indexeddb`; Web Crypto 使用 Node 内置 `globalThis.crypto`, 不引入 polyfill |
-| 测试文件位置 | 按 Nuxt4 官方项目结构定位, 与被测文件就近放置(`*.spec.ts`) |
+| 测试环境 | `jsdom` + `fake-indexeddb`; Web Crypto 使用 Node 内置 `globalThis.crypto`, 不引入 polyfill; 需要 Web Crypto 的用例在文件顶部声明 `@vitest-environment node` |
+| 测试文件位置 | 统一放在 `tests/unit/` 下, **目录结构镜像源码路径**(如 `tests/unit/app/utils/stats.spec.ts`、`tests/unit/server/utils/statsSchema.spec.ts`); 收集范围由 `vitest.config.ts` 的 `include: ['tests/**/*.spec.ts']` 显式声明 |
+| 测试文件类型检查 | 测试文件不在 Nuxt 生成的 `include` 内, 故由 `tests/tsconfig.json` 单独纳入 `pnpm typecheck` |
 
 ### 2.编写时机与用例规模控制
 
@@ -1451,9 +1473,11 @@ export const AiDefaults = {
 export const CacheStaleNotice = {
   // 统计数据已过期时的提示
   STALE_MESSAGE: '这可能是很久前的统计信息',
-  // 数据请求异常时使用本地缓存的提示, 时间格式 YYYY-MM-DD hh:mm:ss
+  // 数据请求异常时使用本地缓存的提示, 时间格式见 TIME_FORMAT
   FALLBACK_MESSAGE: '数据请求异常，当前展示的是本地缓存（生成于 {generatedAt}）',
-  TIME_FORMAT: 'YYYY-MM-DD HH:mm:ss'
+  TIME_FORMAT: 'YYYY-MM-DD HH:mm:ss',
+  // 时间戳缺失或无法解析时的回退文案
+  UNKNOWN_TIME: '未知时间'
 } as const;
 
 export const AiLimits = {

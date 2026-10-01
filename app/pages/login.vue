@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AuthStatuses } from '@types-project/auth';
 import { AppRoutes, StorageKeys } from '@/constants/routes';
 
 const route = useRoute();
@@ -16,15 +17,21 @@ const agreementSections = [
   { title: '三、账号与内容风险提示', paragraphs: ['用户应自行承担使用哔咔账号登录和请求收藏数据的风险。因账号封禁、限制、风控或其他平台措施造成的后果，本项目不承担责任。', 'AI 总结可能包含成人向、暴露性或其他不适宜公开展示的内容。用户将未经处理的总结内容分享到社交媒体后，如因此导致相关账号受限或封禁，本项目不承担责任。', '统计结果和 AI 总结仅供参考，不保证完整性、实时性和准确性，不应作为事实、决策或其他用途的唯一依据。'] },
   { title: '四、用户确认', paragraphs: ['勾选“我已阅读并同意用户协议”并提交登录，即表示用户已阅读并同意以上内容，并理解登录和 AI 总结功能可能产生的数据处理与账号风险。'] },
 ];
-const submitting = computed(() => auth.status === 'logging-in');
+const submitting = computed(() => auth.status === AuthStatuses.LOGGING_IN);
 const canSubmit = computed(() => Boolean(username.value && password.value && agreed.value && agreementRead.value && !submitting.value));
 
 useHead({
   title: '哔咔收藏统计 | 登录',
 });
 
+/** auth-spec 5.4：仅接受以单个 `/` 开头、不含 `//`、反斜杠与协议头的同源相对路径（防开放重定向）。 */
 function isSafeRedirect(value: unknown): value is string {
-  return typeof value === 'string' && /^\/(?!\/)/.test(value) && !value.includes('://');
+  return typeof value === 'string'
+    && value.startsWith('/')
+    && !value.startsWith('//')
+    && !value.includes('//')
+    && !value.includes('\\')
+    && !/^[a-z][\w+.-]*:/i.test(value);
 }
 
 async function submit(): Promise<void> {
@@ -36,7 +43,11 @@ async function submit(): Promise<void> {
   if (rememberAccount.value)
     window.localStorage.setItem(StorageKeys.REMEMBERED_ACCOUNT, username.value);
   else window.localStorage.removeItem(StorageKeys.REMEMBERED_ACCOUNT);
-  const redirect = isSafeRedirect(route.query.redirect) ? route.query.redirect : AppRoutes.SUMMARY;
+  const redirectParam = route.query.redirect;
+  // 无 redirect 参数默认回统计页；参数存在但不合法时回首页（auth-spec 5.4）
+  let redirect = AppRoutes.SUMMARY;
+  if (redirectParam !== undefined)
+    redirect = isSafeRedirect(redirectParam) ? redirectParam : AppRoutes.HOME;
   await navigateTo(redirect);
 }
 
@@ -65,7 +76,7 @@ function acceptAgreement(): void {
 
 <template>
   <div class="responsive login-page grid min-h-[calc(100vh-3.9375rem)] place-items-center py-8">
-    <section class="login-card w-full max-w-[30rem] border-[3px] border-black bg-white p-6 shadow-[8px_8px_0_#000]">
+    <section class="login-card enter-rise w-full max-w-[30rem] border-[3px] border-ink bg-surface p-6 shadow-brutal-lg">
       <p class="eyebrow mb-2 font-mono font-bold">
         WELCOME BACK
       </p>
@@ -73,17 +84,19 @@ function acceptAgreement(): void {
       <p class="intro my-4 leading-relaxed">
         凭哔咔账号读取收藏数据，统计过程只在你的浏览器完成。
       </p>
-      <StatusBanner v-if="auth.errorMessage" tone="danger">
-        {{ auth.errorMessage }}
-      </StatusBanner>
+      <Transition name="banner">
+        <StatusBanner v-if="auth.errorMessage" tone="danger">
+          {{ auth.errorMessage }}
+        </StatusBanner>
+      </Transition>
       <form class="login-form grid gap-2" @submit.prevent="submit">
         <label for="username">账号</label>
-        <input id="username" v-model.trim="username" class="min-h-11 border-2 border-black bg-[var(--cream)] px-3 py-2" autocomplete="username" required>
+        <input id="username" v-model.trim="username" class="min-h-11 border-2 border-ink bg-cream px-3 py-2" autocomplete="username" required>
         <label for="password">密码</label>
-        <input id="password" v-model="password" class="min-h-11 border-2 border-black bg-[var(--cream)] px-3 py-2" type="password" autocomplete="current-password" required>
+        <input id="password" v-model="password" class="min-h-11 border-2 border-ink bg-cream px-3 py-2" type="password" autocomplete="current-password" required>
         <label class="check-row mt-1 flex items-center gap-2 text-sm"><input v-model="rememberAccount" type="checkbox"> 记住账号（不保存密码）</label>
         <div class="check-row mt-1 flex items-center gap-2 text-sm"><label class="agreement-check"><input v-model="agreed" type="checkbox" :disabled="!agreementRead"> 我已阅读并同意</label> <button type="button" class="link-button cursor-pointer font-black underline" @click="openAgreement">用户协议</button></div>
-        <AppButton type="submit" :disabled="!canSubmit">
+        <AppButton type="submit" :class="{ 'is-submitting': submitting }" :disabled="!canSubmit">
           {{ submitting ? '登录中…' : '登录并开始统计' }}
         </AppButton>
       </form>
@@ -91,49 +104,59 @@ function acceptAgreement(): void {
         ← 返回首页
       </NuxtLink>
     </section>
-    <div v-if="agreementOpened" class="agreement-backdrop" role="presentation" @click.self="agreementOpened = false">
-      <section class="agreement-modal" role="dialog" aria-modal="true" aria-labelledby="agreement-title">
-        <h2 id="agreement-title">
-          用户协议与数据使用说明
-        </h2>
-        <div ref="agreementScroll" class="agreement-content" tabindex="0" @scroll="markAgreementRead">
-          <template v-for="section in agreementSections" :key="section.title">
-            <h3>{{ section.title }}</h3>
-            <p v-for="paragraph in section.paragraphs" :key="paragraph">
-              {{ paragraph }}
-            </p>
-          </template>
-        </div>
-        <div class="agreement-actions">
-          <AppButton variant="secondary" :disabled="!agreementRead" @click="acceptAgreement">
-            {{ agreementRead ? '我已阅读并同意' : '请滚动阅读全文' }}
-          </AppButton>
-        </div>
-      </section>
-    </div>
+    <Transition name="agreement">
+      <div v-if="agreementOpened" class="agreement-backdrop" role="presentation" @click.self="agreementOpened = false">
+        <section class="agreement-modal" role="dialog" aria-modal="true" aria-labelledby="agreement-title">
+          <h2 id="agreement-title">
+            用户协议与数据使用说明
+          </h2>
+          <div ref="agreementScroll" class="agreement-content" tabindex="0" @scroll="markAgreementRead">
+            <template v-for="section in agreementSections" :key="section.title">
+              <h3>{{ section.title }}</h3>
+              <p v-for="paragraph in section.paragraphs" :key="paragraph">
+                {{ paragraph }}
+              </p>
+            </template>
+          </div>
+          <div class="agreement-actions">
+            <AppButton variant="secondary" :disabled="!agreementRead" @click="acceptAgreement">
+              {{ agreementRead ? '我已阅读并同意' : '请滚动阅读全文' }}
+            </AppButton>
+          </div>
+        </section>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
 .login-page { min-height: calc(100vh - 3.9375rem); display: grid; place-items: center; padding-top: 2rem; padding-bottom: 2rem; }
-.login-card { width: min(100%, 30rem); max-width: 30rem; border: 3px solid #000; box-shadow: 8px 8px 0 #000; padding: 1.5rem; background: #fff; }
-.eyebrow { margin: 0 0 .5rem; font-family: 'JetBrains Mono', monospace; font-weight: 700; }
-h1 { margin: 0; font-family: 'Archivo Black', 'Noto Sans SC', sans-serif; font-size: 2rem; line-height: 1.15; }
+.eyebrow { margin: 0 0 .5rem; font-family: var(--font-mono); font-weight: 700; }
+h1 { margin: 0; font-family: var(--font-display); font-size: 2rem; line-height: 1.15; }
 .intro { margin: .8rem 0 1.2rem; line-height: 1.6; }
 .login-form { display: grid; gap: .55rem; }
 .login-form label { font-weight: 800; }
-.login-form input:not([type='checkbox']) { min-height: 2.8rem; border: 2px solid #000; padding: .5rem .65rem; background: var(--cream); font: inherit; }
+.login-form input:not([type='checkbox']) { min-height: 2.8rem; border: 2px solid var(--color-ink); padding: .5rem .65rem; background: var(--color-cream); font: inherit; }
 .check-row { display: flex; gap: .4rem; align-items: center; margin-top: .35rem; font-size: .9rem; }
-.check-row input { accent-color: var(--brand-pink); }
+.check-row input { accent-color: var(--color-brand-pink); }
 .agreement-check { display: inline-flex; align-items: center; gap: .4rem; }
 .link-button { border: 0; padding: 0; background: transparent; text-decoration: underline; font: inherit; font-weight: 900; cursor: pointer; }
 .back-link { display: inline-block; margin-top: 1.2rem; font-weight: 800; text-decoration: underline; }
-.agreement-backdrop { position: fixed; inset: 0; display: grid; place-items: center; z-index: 10; padding: 1rem; background: #0008; }
-.agreement-modal { display: flex; flex-direction: column; width: min(100%, 38rem); max-height: calc(100dvh - 2rem); border: 3px solid #000; box-shadow: 8px 8px 0 #000; padding: 1.5rem; background: #fff; }
+.agreement-backdrop { position: fixed; inset: 0; display: grid; place-items: center; z-index: 10; padding: 1rem; background: var(--color-overlay); }
+.agreement-modal { display: flex; flex-direction: column; width: min(100%, 38rem); max-height: calc(100dvh - 2rem); border: 3px solid var(--color-ink); box-shadow: var(--shadow-brutal-lg); padding: 1.5rem; background: var(--color-surface); }
 .agreement-modal h2 { margin: 0 0 1.2rem; line-height: 1.4; }
-.agreement-content { min-height: 0; max-height: 55vh; overflow-y: auto; border: 2px solid #000; padding: 1rem; background: var(--cream); }
+.agreement-content { min-height: 0; max-height: 55vh; overflow-y: auto; border: 2px solid var(--color-ink); padding: 1rem; background: var(--color-cream); }
 .agreement-modal h3 { margin: .6rem 0 .3rem; }
 .agreement-modal p { line-height: 1.7; }
 .agreement-actions { display: flex; justify-content: flex-end; margin-top: 1.4rem; }
+/* 弹窗：遮罩与弹窗在同一阶段必须使用相同时长——Vue 以过渡根节点（遮罩）的结束时间为准，
+   子元素动画更长会被截断。退场与入场对称，避免关闭时看起来"瞬间消失"。 */
+.agreement-enter-active { transition: opacity var(--motion-duration-slow) var(--motion-ease-out); }
+.agreement-leave-active { transition: opacity var(--motion-duration-leave) var(--motion-ease-in); }
+.agreement-enter-active .agreement-modal { transition: transform var(--motion-duration-slow) var(--motion-ease-out), opacity var(--motion-duration-slow) var(--motion-ease-out); }
+.agreement-leave-active .agreement-modal { transition: transform var(--motion-duration-leave) var(--motion-ease-in), opacity var(--motion-duration-leave) var(--motion-ease-in); }
+.agreement-enter-from, .agreement-leave-to { opacity: 0; }
+.agreement-enter-from .agreement-modal { opacity: 0; transform: scale(.94) translateY(var(--motion-shift-sm)); }
+.agreement-leave-to .agreement-modal { opacity: 0; transform: scale(.94) translateY(var(--motion-shift-sm)); }
 @media (max-width: 37.5rem) { .agreement-modal { padding: 1rem; } .agreement-modal h2 { font-size: 1.2rem; } .agreement-content { max-height: 60dvh; } }
 </style>

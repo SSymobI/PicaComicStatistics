@@ -8,9 +8,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (auth.status === AuthStatuses.AUTHENTICATED)
     return;
   const valid = await auth.validate();
-  if (!valid && auth.status === AuthStatuses.EXPIRED)
+  if (valid)
+    return;
+  // 网络错误 / 上游 5xx 不得触发导航，由页面就地展示错误态（auth-spec 四 / 5.1）
+  if (auth.status === AuthStatuses.ERROR)
+    return;
+  if (auth.status === AuthStatuses.EXPIRED)
     return navigateTo(AppRoutes.HOME);
-  if (!valid && (auth.status !== AuthStatuses.ERROR || !auth.user?.id)) {
-    return navigateTo({ path: AppRoutes.LOGIN, query: { redirect: to.fullPath } });
-  }
+  return navigateTo({ path: AppRoutes.LOGIN, query: { redirect: to.fullPath } });
 });

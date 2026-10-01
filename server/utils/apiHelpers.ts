@@ -17,10 +17,11 @@ export function toApiError(error: unknown): H3Error {
     return error;
   if (error instanceof PicaUpstreamError) {
     const statusCode = error.statusCode >= HttpStatus.BAD_REQUEST && error.statusCode < HttpStatus.BAD_GATEWAY ? error.statusCode : HttpStatus.BAD_GATEWAY;
+    // 不回显上游原始响应体（`error.payload` 只用于服务端判定，不进入响应）
     return createError({
       statusCode,
       statusMessage: statusCode === HttpStatus.UNAUTHORIZED ? ApiErrorMessages.PICA_AUTHORIZATION_FAILED : ApiErrorMessages.PICA_UPSTREAM_REQUEST_FAILED,
-      data: { code: statusCode === HttpStatus.UNAUTHORIZED ? ApiErrorCode.UNAUTHORIZED : BatchErrorCode.UPSTREAM_FAILED, details: error.payload },
+      data: { code: statusCode === HttpStatus.UNAUTHORIZED ? ApiErrorCode.UNAUTHORIZED : BatchErrorCode.UPSTREAM_FAILED },
     });
   }
   return createError({ statusCode: HttpStatus.BAD_GATEWAY, statusMessage: ApiErrorMessages.UPSTREAM_REQUEST_FAILED, data: { code: BatchErrorCode.UPSTREAM_FAILED } });

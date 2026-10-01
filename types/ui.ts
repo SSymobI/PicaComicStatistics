@@ -23,7 +23,6 @@ export interface SummarySectionProps {
   description?: string;
   loading?: boolean;
   locked?: boolean;
-  deepRunning?: boolean;
   metrics?: SummaryMetric[];
 }
 

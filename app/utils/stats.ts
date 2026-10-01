@@ -1,6 +1,6 @@
 import type { PicaComic, PicaComicDetail } from '@types-project/domain';
 import type { ComicLengthStats, DistributionPair, FavouriteStats, HotRelationStats, InteractionItem, InteractionStats, KeywordRelationStats, LifecycleStats, LikeRateItem, PopularityStats, StatsInput, StatsResult, TopComicItem, UpdateBucket, WordStatItem, WordStats, YearBucket } from '@types-project/stats';
-import { ClientConfig, ComicLengthThresholds, InteractionWeights, NormalizeConfig, StatThresholds, UpdateRecencyBuckets } from '@/constants/statistics';
+import { ClientConfig, ComicLengthThresholds, InteractionWeights, NormalizeConfig, SHALLOW_INTERACTION_LABEL, StatThresholds, UpdateRecencyBuckets } from '@/constants/statistics';
 
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const n = (v: unknown) => finite(v) ? v : 0;
@@ -168,7 +168,7 @@ export function computeInteractionStats(comics: PicaComic[], details: PicaComicD
   }
   const maxIndex = items.reduce((m, x) => Math.max(m, x.interactionIndex), 0); for (const item of items) item.interactionIndexNormalized = maxIndex > 0 ? item.interactionIndex / maxIndex * 100 : 0;
   items.sort((a, b) => b.interactionIndex - a.interactionIndex || a.title.localeCompare(b.title, 'zh-Hans'));
-  return { deepAnalysis, validCommentCount, commentsTop: deepAnalysis ? [...items].sort((a, b) => b.totalComments - a.totalComments || a.title.localeCompare(b.title, 'zh-Hans')).slice(0, StatThresholds.RANKING_TOP_LIMIT) : [], totalComments, avgComments: validCommentCount ? totalComments / validCommentCount : 0, interactionItems: items, shallowLabel: deepAnalysis ? null : '浅层互动指数' };
+  return { deepAnalysis, validCommentCount, commentsTop: deepAnalysis ? [...items].sort((a, b) => b.totalComments - a.totalComments || a.title.localeCompare(b.title, 'zh-Hans')).slice(0, StatThresholds.RANKING_TOP_LIMIT) : [], totalComments, avgComments: validCommentCount ? totalComments / validCommentCount : 0, interactionItems: items, shallowLabel: deepAnalysis ? null : SHALLOW_INTERACTION_LABEL };
 }
 
 function distributionPair(user: PicaComic[], hot: PicaComic[], kind: 'category' | 'tag' | 'author'): DistributionPair {
