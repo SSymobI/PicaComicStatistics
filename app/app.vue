@@ -1,4 +1,5 @@
 <template>
+  <RouteProgressBar />
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>

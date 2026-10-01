@@ -1,7 +1,124 @@
 @import 'tailwindcss';
 
+/*
+ * 样式入口（Tailwind 管线）。三层职责：
+ * 1. @theme      设计令牌唯一真源（design-guid 的配色表与排版表）；
+ * 2. @utility    野兽派原子（边框 + 实色阴影 + 按压反馈的重复模式）；
+ * 3. @layer components  跨组件动效契约类（由 <Transition name>、v-reveal 指令或 JS 类名间接引用，
+ *                 必须是字面规则：@utility 按需生成，动态类名有整块丢失的风险）。
+ * 基础样式、布局与 BoldKit 兼容别名在 main.css，二者不重复定义同一属性。
+ */
+
 @theme {
+  /* 排版（design-guid 排版表） */
   --font-sans: 'Noto Sans SC', 'PingFang SC', system-ui, sans-serif;
   --font-display: 'Archivo Black', 'Noto Sans SC', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* 配色（design-guid 配色表） */
+  --color-cream: #fff7f9;
+  --color-canvas: #fff0f3;
+  --color-grid-line: #ffffff55;
+  --color-surface: #ffffff;
+  --color-ink: #000000;
+  --color-ink-soft: #171717;
+  --color-skeleton: #eeeeee;
+  --color-overlay: #00000088;
+  --color-brand-pink: #ff5c8a;
+  --color-brand-pink-hot: #ff6b9d;
+  --color-brand-purple: #a78bfa;
+  --color-brand-green: #7fd957;
+  --color-brand-yellow: #ffe066;
+  --color-danger: #ff5555;
+  --color-danger-strong: #ac2424;
+  --color-info: #5aa9ff;
+
+  /* 语义令牌（与 BoldKit 主题令牌一一对应，供 bg-primary / text-danger 等工具类使用） */
+  --color-primary: #ff5c8a;
+  --color-secondary: #ffffff;
+  --color-accent: #ffe066;
+  --color-destructive: #ff5555;
+
+  /* 野兽派阴影：边框宽度与阴影偏移成对出现，颜色固定取 ink */
+  --shadow-brutal-xs: 3px 3px 0 var(--color-ink);
+  --shadow-brutal-sm: 4px 4px 0 var(--color-ink);
+  --shadow-brutal-btn: 5px 5px 0 var(--color-ink);
+  --shadow-brutal: 6px 6px 0 var(--color-ink);
+  --shadow-brutal-lg: 8px 8px 0 var(--color-ink);
+  --shadow-brutal-off: 0 0 0 var(--color-ink);
+}
+
+/* 交互元素：按压位移 + 阴影归零，禁用态按 design-guid 的按压规则收窄。
+   按压属高频反馈，固定用 instant，不随内容体量放慢。 */
+@utility brutal-press {
+  transition: transform var(--motion-duration-instant) var(--motion-ease);
+
+  &:hover,
+  &:focus-visible {
+    transform: translate(1.5px, 1.5px);
+    box-shadow: var(--shadow-brutal-off);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: .55;
+    box-shadow: var(--shadow-brutal-xs);
+  }
+}
+
+/* 卡片容器：3px 边框 + 6px 阴影 + 卡片底色与内边距（SummarySection 根节点与 summary 图表卡共用） */
+@utility brutal-card {
+  border: 3px solid var(--color-ink);
+  box-shadow: var(--shadow-brutal);
+  padding: 1.2rem;
+  background: var(--color-surface);
+}
+
+@layer components {
+  /* 页面切换（nuxt.config 的 app.pageTransition.name = 'page'）
+     进入阶段只做透明度：页面根节点一旦向下位移，其变换后的底边会撑高文档，
+     在 `/` 与 `/login` 这类恰好一屏高的页面上会瞬时冒出纵向滚动条。
+     因此位移只允许出现在「退出」的向上方向（负 Y），它只会让文档变矮。 */
+  .page-enter-active { transition: opacity var(--motion-duration-fast) var(--motion-ease-out); }
+  .page-leave-active { transition: opacity var(--motion-duration-leave) var(--motion-ease-in), transform var(--motion-duration-leave) var(--motion-ease-in); }
+  .page-enter-from { opacity: 0; }
+  .page-leave-to { opacity: 0; transform: translateY(calc(-1 * var(--motion-shift-sm))); }
+
+  /* 滚动进入视口（v-reveal 指令；.reveal-in 读取指令写入的 --reveal-delay）
+     长页大区块用最慢一档，位移也取最大，观感更沉稳 */
+  .reveal-init { opacity: 0; transform: translateY(var(--motion-shift)); }
+  .reveal-in { opacity: 1; transform: none; transition: opacity var(--motion-duration-reveal) var(--motion-ease-out) var(--reveal-delay, 0ms), transform var(--motion-duration-reveal) var(--motion-ease-out) var(--reveal-delay, 0ms); }
+
+  /* 首屏入场（配合 --reveal-delay 错位）；用 backwards 而非 both，避免填充态覆盖 hover 的按压位移 */
+  .enter-rise { animation: enter-rise var(--motion-duration-base) var(--motion-ease-out) var(--reveal-delay, 0ms) backwards; }
+  .enter-pop { animation: enter-pop var(--motion-duration-slow) var(--motion-ease-out) var(--reveal-delay, 0ms) backwards; }
+
+  /* 提示条进出场（<Transition name="banner">）：小元素用快档 */
+  .banner-enter-active { transition: opacity var(--motion-duration-fast) var(--motion-ease-out), transform var(--motion-duration-fast) var(--motion-ease-out); }
+  .banner-leave-active { transition: opacity var(--motion-duration-leave) var(--motion-ease-in), transform var(--motion-duration-leave) var(--motion-ease-in); }
+  .banner-enter-from, .banner-leave-to { opacity: 0; transform: translateY(calc(-1 * var(--motion-shift-sm))); }
+
+  /* 交叉淡入（<Transition name="fade-rise">）：骨架↔内容、AI 文本切换 */
+  .fade-rise-enter-active { transition: opacity var(--motion-duration-base) var(--motion-ease-out), transform var(--motion-duration-base) var(--motion-ease-out); }
+  .fade-rise-leave-active { transition: opacity var(--motion-duration-leave) var(--motion-ease-in), transform var(--motion-duration-leave) var(--motion-ease-in); }
+  .fade-rise-enter-from { opacity: 0; transform: translateY(var(--motion-shift-sm)); }
+  .fade-rise-leave-to { opacity: 0; transform: translateY(calc(-1 * var(--motion-shift-sm))); }
+
+  /* 进行中反馈（加载态，仅透明度） */
+  .is-submitting { animation: submit-pulse 1.1s ease-in-out infinite alternate; }
+}
+
+@keyframes enter-rise {
+  from { opacity: 0; transform: translateY(var(--motion-shift)); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes enter-pop {
+  from { opacity: 0; transform: scale(.94) rotate(-1.5deg); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes submit-pulse {
+  from { opacity: .7; }
+  to { opacity: 1; }
 }

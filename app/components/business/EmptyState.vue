@@ -18,7 +18,7 @@ withDefaults(defineProps<EmptyStateProps>(), { title: '暂无数据', descriptio
 </template>
 
 <style scoped>
-.empty-state { display: grid; place-items: center; gap: .45rem; min-height: 10rem; border: 3px dashed #000; padding: 1rem; text-align: center; background: #fff; }
+.empty-state { display: grid; place-items: center; gap: .45rem; min-height: 10rem; border: 3px dashed var(--color-ink); padding: 1rem; text-align: center; background: var(--color-surface); }
 .empty-mark { font-size: 2rem; font-weight: 900; }
 .empty-state p { margin: 0; }
 </style>

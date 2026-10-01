@@ -27,7 +27,15 @@ export const AiErrorMessages = {
 export const AiDefaults = {
   MISSING_DATA_PLACEHOLDER: '暂无数据',
   NO_DEEP_ANALYSIS_NOTE: '未开启深度分析',
+  SHALLOW_LABEL: '浅层互动指数',
   PARAGRAPH_COUNT: 2,
+} as const;
+
+/** 模型调用参数的默认值（与 PROJECT_SPEC 环境变量表一致，可被 `NUXT_AI_*` 运行时覆盖）。 */
+export const AiModelDefaults = {
+  TEMPERATURE: 0.8,
+  MAX_TOKENS: 1000,
+  TIMEOUT_MS: 30000,
 } as const;
 
 export const AiLimits = {
@@ -37,6 +45,9 @@ export const AiLimits = {
   MAX_TOKENS_MIN: 800,
   MAX_TOKENS_MAX: 1200,
 } as const;
+
+/** 进程内限次计数的保留时长（毫秒）：仅用于清理过期条目，不参与限次判定。 */
+export const AiUsageRetentionMs = 48 * 60 * 60 * 1000;
 
 export const AiPrompts = {
   // Keep this copy synchronized with docs/prompt/summary-sys-prompt.md. The

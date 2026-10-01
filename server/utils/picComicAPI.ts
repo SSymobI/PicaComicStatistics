@@ -16,6 +16,7 @@ import {
   LeaderboardParam,
   PicaComicAPIConfig,
   PicaComicAPIEndpoint,
+  PicaUpstreamDefaults,
 } from '~/server/constants/pica';
 import { createPicaComicHeaders } from '~/server/utils/picaComicHeaderHandler';
 
@@ -59,8 +60,9 @@ function getUpstreamUrl(event: H3Event, path: string): string {
 }
 
 function timeoutMs(event: H3Event): number {
-  const configured = useRuntimeConfig(event).picaUpstreamTimeoutMs;
-  return typeof configured === 'number' && Number.isFinite(configured) && configured > 0 ? configured : 8000;
+  // 运行时注入的环境变量是字符串，必须显式数值化，否则 typeof 判定会静默忽略该配置。
+  const configured = Number(useRuntimeConfig(event).picaUpstreamTimeoutMs);
+  return Number.isFinite(configured) && configured > 0 ? configured : PicaUpstreamDefaults.TIMEOUT_MS;
 }
 
 async function requestPica<T>(

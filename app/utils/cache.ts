@@ -3,9 +3,11 @@ import type { CacheRead, CacheRecord, CacheRecordType, CacheTtlOptions, CacheTyp
 import type { Favourite, PicaComicDetail } from '@types-project/domain';
 import type { StatsResult } from '@types-project/stats';
 import { toRaw } from 'vue';
+import { StorageKeys } from '@/constants/routes';
+import { ClientConfig } from '@/constants/statistics';
 
-export const CACHE_DB_NAME = 'pica-comic-statistics';
-export const CACHE_DB_VERSION = 1;
+export const CACHE_DB_NAME = StorageKeys.IDB_NAME;
+export const CACHE_DB_VERSION = StorageKeys.IDB_VERSION;
 export const GLOBAL_CACHE_USER_ID = '__global__';
 export const CACHE_STORES = ['favourites', 'details', 'stats', 'aiSummary', 'cacheRecord', 'hot'] as const;
 export const DEFAULT_CACHE_TTL: Required<CacheTtlOptions> = {
@@ -142,7 +144,8 @@ export class CacheStore {
   getAiSummary(userId: string): Promise<CacheRead<AiSummary> | null> { return this.read('aiSummary', userId, userId, 'aiSummary', this.ttl.aiSummary); }
 
   async saveHot(value: Omit<HotCacheValue, 'key'>, fetchedAt?: string | Date): Promise<CacheWriteResult> {
-    const record: HotCacheValue = { ...value, key: 'hot' }; try { const db = await this.getDb(); const tx = db.transaction(['hot', 'cacheRecord'], 'readwrite'); const done = transaction(tx); tx.objectStore('hot').put(record); tx.objectStore('cacheRecord').put({ userId: GLOBAL_CACHE_USER_ID, cacheType: 'hot', fetchedAt: asIso(fetchedAt) } satisfies CacheRecord); await done; return { ok: true, degraded: false }; }
+    // 热榜 / 热搜来自响应式 state，必须先解包再写入，否则结构化克隆会抛 DataCloneError
+    const record: HotCacheValue = { ...toCloneable(value), key: 'hot' }; try { const db = await this.getDb(); const tx = db.transaction(['hot', 'cacheRecord'], 'readwrite'); const done = transaction(tx); tx.objectStore('hot').put(record); tx.objectStore('cacheRecord').put({ userId: GLOBAL_CACHE_USER_ID, cacheType: 'hot', fetchedAt: asIso(fetchedAt) } satisfies CacheRecord); await done; return { ok: true, degraded: false }; }
     catch (error) {
       if (isQuotaError(error))
         return { ok: false, degraded: true, error }; throw error;
@@ -175,7 +178,31 @@ export class CacheStore {
   }
 
   async listAccountIds(): Promise<string[]> { const db = await this.getDb(); const tx = db.transaction('cacheRecord', 'readonly'); const records = await request(tx.objectStore('cacheRecord').getAll()) as CacheRecord[]; return records.filter(x => x.cacheType === 'account' && x.userId !== GLOBAL_CACHE_USER_ID).map(x => x.userId); }
-  async enforceUserLimit(limit = 3, currentUserId?: string): Promise<string[]> {
+
+  /** 统计该 userId 已缓存的详情条数：用于恢复缓存后还原「已完成本数 / 总数」。 */
+  async countDetails(userId: string): Promise<number> {
+    assertUserId(userId);
+    const db = await this.getDb();
+    const tx = db.transaction('details', 'readonly');
+    const cursorRequest = tx.objectStore('details').openCursor();
+    return await new Promise<number>((resolve, reject) => {
+      let count = 0;
+      cursorRequest.onsuccess = () => {
+        const cursor = cursorRequest.result;
+        if (!cursor) {
+          resolve(count);
+          return;
+        }
+        const key = cursor.primaryKey as IDBValidKey[];
+        if (Array.isArray(key) && key[0] === userId)
+          count += 1;
+        cursor.continue();
+      };
+      cursorRequest.onerror = () => reject(cursorRequest.error || new Error('IndexedDB cursor failed'));
+    });
+  }
+
+  async enforceUserLimit(limit: number = ClientConfig.MAX_LOCAL_USER_PROFILES, currentUserId?: string): Promise<string[]> {
     if (limit < 1)
       return []; const db = await this.getDb(); const tx = db.transaction('cacheRecord', 'readonly'); const records = (await request(tx.objectStore('cacheRecord').getAll()) as CacheRecord[]).filter(x => x.cacheType === 'account' && x.userId !== GLOBAL_CACHE_USER_ID); records.sort((a, b) => parseTime(a.lastLoginAt || a.fetchedAt) - parseTime(b.lastLoginAt || b.fetchedAt)); const ids = [...new Set(records.map(x => x.userId))]; const keep = new Set(ids); if (currentUserId)
       keep.add(currentUserId); const removed: string[] = []; while (keep.size > limit) {

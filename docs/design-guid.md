@@ -27,16 +27,25 @@
 
 ### 主题变量映射
 
-所有颜色必须以 CSS 变量形式定义，禁止在组件内硬编码色值。变量分两组：
+所有颜色必须以 CSS 变量形式定义，禁止在组件内硬编码色值。**令牌唯一真源是 `app/assets/css/tailwind.css` 的 `@theme`**，按 Tailwind v4 命名空间声明：
 
-1. **本项目业务令牌**：上表的 `cream` / `brand-*` / `danger` / `info`。
-2. **BoldKit 主题令牌**：由 `npx shadcn-vue@latest add @boldkit/styles` 注入，至少包含 `--primary`、`--secondary`、`--accent`、`--destructive`、`--shadow-color`、`--radius`。
+| 用途 | `@theme` 令牌 | 生成的工具类 |
+|---|---|---|
+| 页面底色 / 方格线 | `--color-cream`、`--color-canvas`、`--color-grid-line` | `bg-cream`、`bg-canvas` |
+| 卡片与文字 | `--color-surface`、`--color-ink`、`--color-ink-soft` | `bg-surface`、`border-ink`、`text-ink` |
+| 主色与强调色 | `--color-brand-pink`、`--color-brand-pink-hot`、`--color-brand-purple`、`--color-brand-green`、`--color-brand-yellow` | `bg-brand-pink`、`text-brand-yellow` |
+| 状态色 | `--color-danger`、`--color-danger-strong`、`--color-info` | `bg-danger`、`text-danger-strong` |
+| 骨架屏 / 遮罩 | `--color-skeleton`、`--color-overlay` | `bg-skeleton`、`bg-overlay` |
+| 字体 | `--font-sans`、`--font-display`、`--font-mono` | `font-sans`、`font-display`、`font-mono` |
+
+BoldKit / shadcn 约定名（`--primary`、`--secondary`、`--accent`、`--destructive`、`--shadow-color`、`--radius`）以**别名**形式保留在 `app/assets/css/main.css` 的 `:root`，供后续 vendored 组件直接读取；别名只允许指向 `@theme` 令牌，不得再写字面色值。
 
 映射要求：
 
-- `--primary` 取 `brand-pink`；`--accent` 取 `brand-yellow`；`--destructive` 取 `danger`。
+- `--primary` 取 `brand-pink`；`--accent` 取 `brand-yellow`；`--destructive` 取 `danger`；`--shadow-color` 取 `ink`。
 - `--radius` **必须为 `0rem`**（BoldKit 官方主题的默认值即为此，安装后需核对）。
-- 图表配色从这组变量读取，保证图表与组件观感一致。
+- 图表配色从这组变量读取（`StatsChart` 读 `--color-*` 的计算值），保证图表与组件观感一致。
+- 组件样式里出现字面色值即视为违规；新增颜色必须先加 `@theme` 令牌。
 
 ### 暗色模式
 
@@ -71,6 +80,22 @@
 | 微型 | `2px solid #000` | `3px 3px 0 0 #000` | 小标签、下拉选项 |
 | 无阴影 | `2px solid #000` | 无 | 用户卡片等融入背景的元素 |
 
+阴影偏移以 `@theme` 令牌声明，边框宽度与阴影偏移成对使用：
+
+| 令牌 | 值 | 工具类 |
+|---|---|---|
+| `--shadow-brutal-xs` | `3px 3px 0 var(--color-ink)` | `shadow-brutal-xs` |
+| `--shadow-brutal-sm` | `4px 4px 0 var(--color-ink)` | `shadow-brutal-sm` |
+| `--shadow-brutal-btn` | `5px 5px 0 var(--color-ink)` | `shadow-brutal-btn` |
+| `--shadow-brutal` | `6px 6px 0 var(--color-ink)` | `shadow-brutal` |
+| `--shadow-brutal-lg` | `8px 8px 0 var(--color-ink)` | `shadow-brutal-lg` |
+| `--shadow-brutal-off` | `0 0 0 var(--color-ink)` | 按压时的归零阴影 |
+
+两个 `@utility` 原子封装重复模式（定义在 `tailwind.css`）：
+
+- `brutal-card`：`3px` 边框 + `--shadow-brutal` + 卡片底色 + `1.2rem` 内边距（`SummarySection` 根节点与 `/summary` 图表卡共用，避免同名类在两处各定义一份）。
+- `brutal-press`：按压位移 + 阴影归零 + 禁用态（`cursor`、`opacity`、收窄阴影）。交互元素一律用它，不再逐个手写 `hover:` / `focus-visible:` / `disabled:` 链。
+
 #### 按压效果
 
 hover 时元素向右下偏移、阴影缩为 0，模拟"按下去"的触觉反馈：
@@ -87,9 +112,52 @@ hover/active: translate(1.5px, 1.5px); box-shadow: 0 0 0 0 #000;
 
 #### 动画范围
 
-- 仅保留按压反馈与必要的加载动画（骨架屏、进度条、spinner）。
-- **不做页面切换过渡动画**，不做图表入场动画之外的装饰性动画。
-- 遵循 `prefers-reduced-motion`：用户声明减少动态效果时禁用非必要动画。
+动效只服务于「状态可感知」与「空间连续性」，不做炫技。时长按交互频率与内容体量分级——**进入慢、退出快，高频反馈不放慢**：
+
+| 类别 | 允许的表现 | 时长档位 |
+|---|---|---|
+| 按压 / 悬停反馈 | 位移、阴影瞬变、颜色过渡 | `--motion-duration-instant`（120ms），不随内容体量放慢 |
+| 提示条 / 状态切换 | 透明度 + 小位移 | `--motion-duration-fast`（200ms）进入 / `--motion-duration-leave`（220ms）退出 |
+| 页面切换过渡 | 透明度（进入）+ 透明度与向上位移（退出），`out-in` 单页驻留 | `fast`（200ms）进入 / `leave`（220ms）退出 |
+| 页面切换进度条 | 顶部固定细条的 `scaleX` 增长 + 整条淡入淡出 | 增长 `instant`（120ms）；进入 `fast`（200ms） / 退出 `leave`（220ms） |
+| 组件入场 | 透明度 + 位移 | `--motion-duration-base`（280ms） |
+| 弹窗 | 遮罩透明度 + 弹窗缩放与位移，进出对称 | `--motion-duration-slow`（360ms）进入 / `leave`（220ms）退出 |
+| 首屏重点元素 | 透明度 + 位移 / 轻微缩放 | `slow`（360ms） |
+| 滚动进入视口 | 透明度 + 位移，同屏元素按 `--motion-stagger`（60ms）错位，默认只播一次 | `--motion-duration-reveal`（480ms） |
+| 加载态 | 骨架屏脉冲、进度条、进行中脉冲（仅透明度） | 循环，不限 |
+| 图表入场 | ECharts 内建动画；词云扩展无入场能力时以容器淡入代替 | 600ms |
+
+约束：
+
+- 只允许动画 `transform` 与 `opacity`；不得动画 `width` / `height` / `margin` / `padding` 等布局属性（进度类宽度一律用 `transform: scaleX()` 表达）。
+- 时长、缓动、位移必须取 `app/assets/css/main.css` 的 `--motion-*` 令牌，不得在组件内写死毫秒数；JS 侧数值取 `app/constants/motion.ts`。
+- 缓动分三类：进入用 `--motion-ease-out`（减速收尾）、退出用 `--motion-ease-in`（加速离场）、按压用 `--motion-ease`。
+- 同一过渡内的嵌套元素（如弹窗与它的遮罩）**必须使用相同时长**：Vue 以过渡根节点的结束时间为准，子元素动画更长会被截断（或显式传 `:duration`）。退场值也不得小到不可感知——`scale(.98)` + 120ms 这类组合等于没有动画。
+- 遵循 `prefers-reduced-motion`：`--motion-*` 令牌在 `reduce` 下折叠为 0，JS 侧（图表动画、平滑滚动、滚动入场）必须同步判断。
+- 动效不得改变内容可见性：动效未触发、被禁用或脚本失效时，内容必须直接呈现。
+- 页面切换的位移只允许向上（负 Y）。页面根节点向下位移会把变换后的底边算进可滚动溢出区, 在 `/` 与 `/login` 这类恰好一屏高的页面上会瞬时出现纵向滚动条, 破坏「`/` 在 `<600px` 无滚动条」的硬约束。
+- 页面切换使用 `out-in`，避免长页双份挂载（`/summary` 有 8 个 ECharts 实例）。
+- 页面切换进度条固定在视口顶部，不参与文档流、不改变布局、不产生滚动条，也不拦截指针事件；增长只允许 `transform: scaleX()`。`prefers-reduced-motion: reduce` 下进度取恒定值（`UiRouteProgress.REDUCED_MOTION_PERCENT`），只保留淡入淡出，不做连续增长。
+- 首页 `/` 的入场动效不得产生横向或纵向溢出（`<600px` 无滚动条为硬约束）。
+- 键盘用户无法触发 hover，按压反馈必须同时提供 `:focus-visible` 等价表现（见上一节）。
+
+### 样式实现约定
+
+样式分三处，职责不得混淆：
+
+| 位置 | 负责内容 |
+|---|---|
+| `tailwind.css` 的 `@theme` | 设计令牌唯一真源（配色、字体、野兽派阴影） |
+| `tailwind.css` 的 `@utility` / `@layer components` | 野兽派原子（`brutal-card`、`brutal-press`）与跨组件动效契约类（`page-*`、`reveal-*`、`enter-*`、`banner-*`、`fade-rise-*`、`is-submitting`） |
+| `main.css` | 全局 reset、页面底色、页头与容器布局、BoldKit 别名、`--motion-*` 令牌及其 reduced-motion 折叠 |
+| 各组件 `<style scoped>` | 组件级结构样式（网格、表格、媒体查询、后代选择器） |
+
+两条硬性注意事项：
+
+- **Tailwind v4 的工具类位于原生 cascade layer 内，而未分层的 scoped 样式优先级更高**。改写成工具类时必须同时删除被替代的 scoped 声明；反之，把 scoped 规则搬进 `@layer components` 会使其掉到工具类之下，可能改变既有覆盖关系（例如 `/summary` 工具栏按钮依赖未分层 CSS 压过 `AppButton` 的 `px-5 py-3`）。
+- **`@utility` 是按需生成的**：只有扫描到候选类名才会输出。由 JS 动态添加的类名（指令写入的 `reveal-init` / `reveal-in`）与 `<Transition name>` 的约定类名必须写成字面 CSS 规则，不得定义为 `@utility`。
+
+组件级结构样式不做全量原子化：`/summary` 的表格、网格与组合媒体查询改写后模板体积成倍增长、收益为负。
 
 ## 布局
 
@@ -98,6 +166,7 @@ hover/active: translate(1.5px, 1.5px); box-shadow: 0 0 0 0 #000;
 - `.responsive`：`max-width: 1200px`、`margin: auto`、`padding: 0 2rem`（移动端 1rem）
 - 页面背景：`#FFF0F3` + 72×72px 浅色方格线
 - Header 高度：63px（60px 内容 + 3px 底边框）
+- 顶部路由进度条：`position: fixed` 贴顶通栏，高 `.5rem`（含 3px 墨色下边框），底色 `--color-surface`、进度填充 `--color-brand-pink`；参数取 `app/constants/ui.ts` 的 `UiRouteProgress`，实现见 `app/components/business/RouteProgressBar.vue`（挂载点 `app/app.vue`），路由加载状态取 Nuxt 内建的 `useLoadingIndicator`
 
 ### 单位口径
 

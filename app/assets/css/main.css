@@ -1,36 +1,69 @@
+/*
+ * 基础样式、布局与令牌别名。
+ * 设计令牌的真源在 tailwind.css 的 @theme，这里只保留三类内容：
+ * 1. BoldKit / ECharts 兼容别名（--primary 等，见 design-guid 的令牌映射要求）；
+ * 2. 动效令牌（含 prefers-reduced-motion 折叠——@theme 无法按媒体查询改写变量值）；
+ * 3. 全局 reset、页面底色与页头/容器布局。
+ * 跨组件动效契约类（page-* / reveal-* / enter-* / banner-* / fade-rise-* / is-submitting）在 tailwind.css。
+ */
+
 :root {
-  --cream: #fff7f9;
-  --brand-pink: #ff5c8a;
-  --brand-pink-hot: #ff6b9d;
-  --brand-purple: #a78bfa;
-  --brand-green: #7fd957;
-  --brand-yellow: #ffe066;
-  --danger: #ff5555;
-  --info: #5aa9ff;
-  --primary: var(--brand-pink);
-  --secondary: #ffffff;
-  --accent: var(--brand-yellow);
-  --destructive: var(--danger);
-  --shadow-color: #000000;
+  /* BoldKit 主题令牌别名（后续 vendored 组件按 shadcn 约定读取这些名字） */
+  --primary: var(--color-primary);
+  --secondary: var(--color-secondary);
+  --accent: var(--color-accent);
+  --destructive: var(--color-destructive);
+  --shadow-color: var(--color-ink);
   --radius: 0rem;
-  color: #000;
-  background: var(--cream);
-  font-family: 'Noto Sans SC', 'PingFang SC', system-ui, sans-serif;
+
+  /* 动效时长：按交互频率与内容体量分级；进入慢、退出快 */
+  --motion-duration-instant: 120ms;   /* 按压/悬停等高频反馈，保持跟手 */
+  --motion-duration-fast: 200ms;      /* 提示条、状态文案、页面进入 */
+  --motion-duration-base: 280ms;      /* 常规组件入场、骨架↔内容切换 */
+  --motion-duration-slow: 360ms;      /* 弹窗、首屏重点元素 */
+  --motion-duration-reveal: 480ms;    /* 长页滚动入场（大区块） */
+  --motion-duration-leave: 220ms;     /* 退场统一：略快于进入 */
+  /* 动效缓动：进入减速收尾、退出加速离场、按压用通用曲线 */
+  --motion-ease: cubic-bezier(.2, .9, .2, 1);
+  --motion-ease-out: cubic-bezier(.22, 1, .36, 1);
+  --motion-ease-in: cubic-bezier(.4, 0, .7, .2);
+  --motion-shift: 14px;
+  --motion-shift-sm: 8px;
+  --motion-stagger: 60ms;
+
+  color: var(--color-ink);
+  background: var(--color-cream);
+  font-family: var(--font-sans);
+}
+
+/* 用户声明减少动态效果时，动效令牌折叠为 0，加载态脉冲保留（仅透明度变化） */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration-instant: 0ms;
+    --motion-duration-fast: 0ms;
+    --motion-duration-base: 0ms;
+    --motion-duration-slow: 0ms;
+    --motion-duration-reveal: 0ms;
+    --motion-duration-leave: 0ms;
+    --motion-shift: 0px;
+    --motion-shift-sm: 0px;
+    --motion-stagger: 0ms;
+  }
 }
 
 * { box-sizing: border-box; }
 html, body, #__nuxt { min-height: 100%; margin: 0; }
 body {
-  background-color: #fff0f3;
-  background-image: linear-gradient(#ffffff55 1px, transparent 1px), linear-gradient(90deg, #ffffff55 1px, transparent 1px);
+  background-color: var(--color-canvas);
+  background-image: linear-gradient(var(--color-grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--color-grid-line) 1px, transparent 1px);
   background-size: 4.5rem 4.5rem;
 }
 a { color: inherit; text-decoration: none; }
-.app-shell { min-height: 100vh; }
-.site-header { display: flex; align-items: center; justify-content: space-between; min-height: 3.9375rem; padding: 0 2rem; border-bottom: 3px solid #000; background: #fff; }
-.brand { font-family: 'Archivo Black', 'Noto Sans SC', sans-serif; font-size: 1.15rem; }
+.app-shell { min-height: 100vh; overflow-x: clip; }
+.site-header { display: flex; align-items: center; justify-content: space-between; min-height: 3.9375rem; padding: 0 2rem; border-bottom: 3px solid var(--color-ink); background: var(--color-surface); }
+.brand { font-family: var(--font-display); font-size: 1.15rem; }
 .header-nav { display: flex; gap: 1rem; font-weight: 700; }
-.header-nav a { padding: .4rem .6rem; border: 2px solid #000; box-shadow: 3px 3px 0 #000; background: #fff; }
-.header-nav a:hover, .header-nav a:focus-visible { transform: translate(1.5px, 1.5px); box-shadow: 0 0 0 #000; outline: 3px solid #000; outline-offset: 2px; }
+.header-nav a { padding: .4rem .6rem; border: 2px solid var(--color-ink); box-shadow: var(--shadow-brutal-xs); background: var(--color-surface); transition: transform var(--motion-duration-instant) var(--motion-ease); }
+.header-nav a:hover, .header-nav a:focus-visible { transform: translate(1.5px, 1.5px); box-shadow: var(--shadow-brutal-off); outline: 3px solid var(--color-ink); outline-offset: 2px; }
 .responsive { width: min(100%, 75rem); margin: 0 auto; padding: 0 2rem; }
 @media (max-width: 37.5rem) { .site-header { padding: 0 1rem; } .responsive { padding: 0 1rem; } .header-nav { gap: .35rem; font-size: .85rem; } }

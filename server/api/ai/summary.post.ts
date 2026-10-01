@@ -3,13 +3,21 @@ import type { StatsResult } from '~/types/stats';
 import { useRuntimeConfig } from '#imports';
 import { createError, defineEventHandler, getHeader, readBody } from 'h3';
 import OpenAI from 'openai';
-import { AiDefaults, AiErrorCode, AiErrorMessages, AiLimits, AiPrompts } from '~/server/constants/ai';
+import { AiDefaults, AiErrorCode, AiErrorMessages, AiLimits, AiModelDefaults, AiPrompts, AiUsageRetentionMs } from '~/server/constants/ai';
 import { ApiErrorCode, ApiErrorMessages, HttpStatus } from '~/server/constants/errors';
 import { requireAuthorization, toApiError } from '~/server/utils/apiHelpers';
 import { picaProfile, unwrapPicaData } from '~/server/utils/picComicAPI';
 import { parseStatsResult } from '~/server/utils/statsSchema';
 
-const dailyUsage = new Map<string, { day: string; count: number }>();
+const dailyUsage = new Map<string, { day: string; count: number; at: number }>();
+
+/** 清理过期计数条目：仅按写入时间回收，避免 Map 随用户数无限增长。 */
+function pruneDailyUsage(now: number): void {
+  for (const [userId, usage] of dailyUsage) {
+    if (now - usage.at > AiUsageRetentionMs)
+      dailyUsage.delete(userId);
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -147,19 +155,20 @@ export default defineEventHandler(async (event) => {
     throw toApiError(error);
   }
   const day = localDay(getHeader(event, 'x-timezone'));
+  pruneDailyUsage(Date.now());
   const usage = dailyUsage.get(userId);
   if (usage?.day === day && usage.count >= AiLimits.DAILY_LIMIT)
     throw createError({ statusCode: HttpStatus.TOO_MANY_REQUESTS, statusMessage: AiErrorMessages.AI_DAILY_LIMIT_EXCEEDED, data: { code: AiErrorCode.AI_DAILY_LIMIT_EXCEEDED } });
-  const temperature = Math.min(AiLimits.TEMPERATURE_MAX, Math.max(AiLimits.TEMPERATURE_MIN, Number(config.aiTemperature) || 0.8));
-  const maxTokens = Math.min(AiLimits.MAX_TOKENS_MAX, Math.max(AiLimits.MAX_TOKENS_MIN, Number(config.aiMaxTokens) || 1000));
+  const temperature = Math.min(AiLimits.TEMPERATURE_MAX, Math.max(AiLimits.TEMPERATURE_MIN, Number(config.aiTemperature) || AiModelDefaults.TEMPERATURE));
+  const maxTokens = Math.min(AiLimits.MAX_TOKENS_MAX, Math.max(AiLimits.MAX_TOKENS_MIN, Number(config.aiMaxTokens) || AiModelDefaults.MAX_TOKENS));
   try {
-    const client = new OpenAI({ apiKey: config.aiApiKey, baseURL: config.aiBaseUrl, timeout: Number(config.aiTimeoutMs) || 30000, maxRetries: 0 });
+    const client = new OpenAI({ apiKey: config.aiApiKey, baseURL: config.aiBaseUrl, timeout: Number(config.aiTimeoutMs) || AiModelDefaults.TIMEOUT_MS, maxRetries: 0 });
     const response = await client.chat.completions.create({ model: config.aiModel, temperature, max_tokens: maxTokens, messages: [{ role: 'system', content: AiPrompts.system }, { role: 'user', content: fillPrompt(stats) }] });
     const content = response.choices[0]?.message?.content?.trim();
     if (!content)
       throw createError({ statusCode: HttpStatus.BAD_GATEWAY, statusMessage: AiErrorMessages.AI_EMPTY_RESPONSE, data: { code: AiErrorCode.AI_EMPTY_RESPONSE } });
     const result = { userId, ...parseOutput(content, stats.generatedAt) };
-    dailyUsage.set(userId, usage?.day === day ? { day, count: usage.count + 1 } : { day, count: 1 });
+    dailyUsage.set(userId, usage?.day === day ? { day, count: usage.count + 1, at: Date.now() } : { day, count: 1, at: Date.now() });
     return result;
   }
   catch (error) {

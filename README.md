@@ -15,7 +15,7 @@ PicaComicStatistics 是一个 Nuxt 4 SPA，用于通过哔咔漫画服务端代�
 - Nuxt 4、Vue 3、Pinia
 - Tailwind CSS 4、Neubrutalism/BoldKit 风格
 - ECharts 5、vue-echarts 7、echarts-wordcloud 2
-- Vitest、OpenAI-compatible AI API
+- Vitest、Husky + lint-staged、OpenAI-compatible AI API
 
 ### 命令
 
@@ -30,7 +30,9 @@ pnpm run typecheck                  // 类型检查
 pnpm run test:unit                  // 单元测试
 ```
 
-默认访问 http://localhost:3000。运行时配置可从 .env.example 复制，AI 相关变量可为空，缺少 AI 配置不会阻止构建或统计功能启动。
+默认应用端口为`3000`。运行时配置可从 .env.example 复制，AI 相关变量可为空，缺少 AI 配置不会阻止构建或统计功能启动。
+
+提交前 husky 的 `pre-commit` 钩子会执行 lint-staged，对暂存文件运行 `eslint --fix`：可自动修复的问题会被修正并重新暂存，修复后仍存在的错误会中断本次提交。钩子由 `pnpm install` 触发的 `prepare` 脚本（`husky`）自动安装，新克隆的仓库无需额外操作。
 
 Node 产物位于 .output/，可使用 node .output/server/index.mjs 启动。Docker 构建使用仓库中的多阶段 Dockerfile，运行时监听 3000 端口。
 
